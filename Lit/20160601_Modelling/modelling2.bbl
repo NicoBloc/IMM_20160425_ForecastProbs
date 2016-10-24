@@ -1,0 +1,105 @@
+\begin{thebibliography}{10}
+
+\bibitem{Metzler1974}
+C.~M. Metzler and R.~M. DeHaan.
+\newblock Susceptibility tests of anaerobic bacteria: statistical and clinical
+  considerations.
+\newblock {\em J.~Infect.~Dis.}, 130(6):588--594, 1974.
+
+\bibitem{Craig2000}
+B.~A. Craig.
+\newblock Modeling approach to diameter breakpoint determination.
+\newblock {\em Diagn.~Microbiol.~Infect.~Dis.}, 36(3):193--202, 2000.
+
+\bibitem{Kronvall2003}
+G.~Kronvall, G.~Kahlmeter, E.~Myhre, and M.~F. Galas.
+\newblock A new method for normalized interpretation of antimicrobial
+  resistance from disk test results for comparative purposes.
+\newblock {\em Clin.~Microbiol.~Infect.}, 9(2):120--132, 2003.
+
+\bibitem{Annis2005b}
+D.~H. Annis and B.~A. Craig.
+\newblock The effect of interlaboratory variability on antimicrobial
+  susceptibility determination.
+\newblock {\em Diagn.~Microbiol.~Infect.~Dis.}, 53(1):61--64, 2005.
+
+\bibitem{Turnidge2006}
+J.~Turnidge, G.~Kahlmeter, and G.~Kronvall.
+\newblock Statistical characterisation of bacterial wild-type {MIC} value
+  distributions and the determination of epidemiological cut-off values.
+\newblock {\em Clin.~Microbiol.~Infect.}, 12(5):418--425, 2006.
+
+\bibitem{Kassteele2012}
+J.~van~de Kassteele, M.~G. van Santen-Verheuvel, F.~D.~H. Koedijk, A.~P. van
+  Dam, M.~A.~B. van~der Sande, and A.~J. de~Neeling.
+\newblock New statistical technique for analyzing {MIC}-based susceptibility
+  data.
+\newblock {\em Antimicrob.~Agents Chemother.}, 56(3):1557--1563, 2012.
+
+\bibitem{Meletiadis2012}
+J.~Meletiadis, E.~Mavridou, W.~J.~G. Melchers, J.~W. Mouton, and P.~E. Verweij.
+\newblock Epidemiological cutoff values for azoles and {A}spergillus fumigatus
+  based on a novel mathematical approach incorporating {cyp51A} sequence
+  analysis.
+\newblock {\em Antimicrob.~Agents Chemother.}, 56(5):2524--2529, 2012.
+
+\bibitem{Canton2012}
+E.~Cant{\'o}n, J.~Pem{\'a}n, D.~Herv{\'a}s, C.~I{\~n}iguez, D.~Navarro,
+  J.~Echeverr{\'\i}a, J.~Mart{\'\i}nez-Alarc{\'o}n, D.~Fontanals,
+  B.~Gomila-Sard, B.~Buend{\'\i}a, L.~Torroba, J.~Ayats, A.~Bratos,
+  F.~S{\'a}nchez-Reus, Fern{\'a}ndez-Natal, and the FUNGEMYCA Study~Group.
+\newblock Comparison of three statistical methods for establishing tentative
+  wild-type population and epidemiological cutoff values for echinocandins,
+  amphotericin {B}, flucytosine, and six {C}andida species as determined by the
+  colorimetric {S}ensititre {Y}east{O}ne method.
+\newblock {\em J.~Clin.~Microbiol.}, 50(12):3921--3926, 2012.
+
+\bibitem{Jaspers2014a}
+S.~Jaspers, M.~Aerts, G.~Verbeke, and P.-A. Beloeil.
+\newblock Estimation of the wild-type minimum inhibitory concentration value
+  distribution.
+\newblock {\em Statist.~Med.}, 33(2):289--303, 2014.
+
+\bibitem{Brunden1992}
+M.~N. Brunden, G.~E. Zurenko, and B.~Kapik.
+\newblock Modification of the error-rate bounded classification scheme for use
+  with two {MIC} break points.
+\newblock {\em Diagn.~Microbiol.~Infect.~Dis.}, 15(2):135--140, 1992.
+
+\bibitem{Annis2005}
+D.~H. Annis and B.~A. Craig.
+\newblock Statistical properties and inference of the antimicrobial {MIC} test.
+\newblock {\em Statist.~Med.}, 24(23):3631--3644, 2005.
+
+\bibitem{Lamy2004}
+B.~Lamy, G.~Carret, J.-P. Flandrois, and M.~L. Delignette-Muller.
+\newblock How does susceptibility prevalence impact on the performance of disk
+  diffusion susceptibility testing?
+\newblock {\em Diagn.~Microbiol.~Infect.~Dis.}, 49(2):131--139, 2004.
+
+\bibitem{Depalma2016}
+G.~DePalma, J.~Turnidge, and B.~A. Craig.
+\newblock Determination of disk diffusion susceptibility testing interpretive
+  criteria using model-based analysis: development and implementation.
+\newblock {\em Diagn.~Microbiol.~Infect.~Dis.}, in press(?):??--??, 2016.
+
+\bibitem{Depalma2016b}
+G.~DePalma, J.~Turnidge, and B.~A. Craig.
+\newblock {dBETS}: An online software package for diffusion test breakpoint
+  determination.
+\newblock {\em user manual}, in press(?):??--??, 2016.
+
+\bibitem{Jaspers2014b}
+S.~Jaspers, M.~Aerts, G.~Verbeke, and P.-A. Beloeil.
+\newblock A new semi-parametric mixture model for interval censored data, with
+  applications in the field of antimicrobial resistance.
+\newblock {\em Comput.~Stat.~Data Anal.}, 71:30--42, 2014.
+
+\bibitem{Jaspers2016}
+S.~Jaspers, G.~Verbeke, D.~B{\"o}hning, and M.~Aerts.
+\newblock Application of the vertex exchange method to estimate a
+  semi-parametric mixture model for the {MIC} density of {E}scherichia coli
+  isolates tested for susceptibility against ampicillin.
+\newblock {\em Biostatistics}, 17(1):94--107, 2016.
+
+\end{thebibliography}

@@ -1,0 +1,30 @@
+---
+title: "Forecast probabilities - modelling literature review"
+author: "Nicolas Blöchliger, Institute of Medical Microbiology, University of Zurich"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  pdf_document:
+    fig_caption: yes
+    number_sections: true
+    toc: true
+    keep_tex: true
+
+classoption: a4paper
+linkcolor: black
+bibliography: ../../../../Bibliography/literature.bib
+csl: ../../../../Bibliography/computer-physics-communications.csl
+---
+
+# Error rate-bound method [@Metzler1974]
+
+Aim: Determine CBPs for inhibition zone diameters.
+Required: MIC cut-off, desired sensitivity and specificity.
+Model: Classification according to this cut-off is treated as the ground truth. CBPs for inhibition zone diameters are set such that desired sensitivity and specificity are achieved for a minimal intermediate zone.
+
+Ref.\ [@Brunden1992] presents a cost function and an algorithm for its optimisation to apply the error rate-bound method in cases with two different MIC cut-offs.
+
+# [@Craig2000]
+
+Motivation: the error-rate bound method
+
+# Reference

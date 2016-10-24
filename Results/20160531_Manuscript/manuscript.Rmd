@@ -1,0 +1,231 @@
+---
+title: "MASTER: A model to calculate categorisation error rates of antimicrobial susceptibility testing"
+author: "Nicolas Blöchliger, Peter M. Keller, Erik C. Böttger, Michael Hombach*\\newline Institute of Medical Microbiology, University of Zurich, Gloriastrasse 30/32, 8006 Zürich, Switzerland"
+header-includes:
+   - \usepackage{lineno}
+   - \usepackage{booktabs}
+   - \usepackage{setspace}
+output:
+  pdf_document:
+    keep_tex: true
+
+linkcolor: black
+bibliography: ../../../../Bibliography/literature.bib
+csl: ../../../../Bibliography/journal-of-antimicrobial-chemotherapy.csl
+---
+
+\setlength{\parskip}{0pt plus 1pt}
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(knitr)  # kable()
+library(mclust)  # needed for version number
+library(tidyr)
+library(dplyr)
+```
+
+*Corresponding author:
+
+Michael Hombach, M.D.
+
+Institut für Medizinische Mikrobiologie
+
+Universität Zürich
+
+Gloriastr. 30/32
+
+8006 Zürich
+
+Switzerland
+
+Phone: 0041 44 634 27 00
+
+Fax: 0041 44 634 49 06
+
+email: mhombach@imm.uzh.ch
+
+\medskip
+
+Running title: Categorisation errors of antimicrobial susceptibility testing
+
+\newpage
+
+\doublespacing
+\setlength{\parindent}{15pt}
+\linenumbers
+
+\paragraph{Objectives:} Antimicrobial susceptibility testing (AST) categorises pathogens as "susceptible", "intermediate", or "resistant" based on clinical breakpoints (CBPs) without indicating the reliability of such a categorisation. This study proposes a model to estimate for a given inhibition zone diameter the forecast probability, i.e. the probability that no major or very major error occurs due to methodological variation.
+
+\paragraph{Methods:} The model distinguishes between the underlying true inhibition zone diameter and the actually observed diameter, which suffers from methodological variation. The distribution of the true diameter is described with a normal mixture model. The model was fitted to measured inhibition zone diameters of clinical *Escherichia coli* strains. The data comprised measurements from 9766 strains for eleven $\beta$-lactams, 3521 strains for two aminoglycosides, and 9761 strains for three quinolones. Repeated measurements for a quality control strain were used to quantify the methodological variation.
+
+\paragraph{Results:} The models describe the empirical distributions of the AST data well. The forecast probability was 1 within the intermediate zone and for diameters sufficiently distant from CBPs. It was less than 1 in the vicinity of the intermediate zone or close to the CBP in settings without an intermediate zone. For most antibiotics, fewer than 5% of all strains had associated forecast probabilities of less than 0.99. The exceptions were co-amoxiclav (41%) and cefoxitin (6%).
+
+\paragraph{Conclusions:} We propose a framework to calculate forecast probabilities that can complement AST categorisation with a quantitative measure of uncertainty to guide clinical decision-making. The model allows evaluating CBPs in a systematic manner.
+
+
+# Introduction
+
+The results of antimicrobial susceptibility testing (AST) are usually categorised prior to reporting to clinicians, and the pathogen is labelled as "susceptible", "intermediate" or "resistant".[@Turnidge2007] This interpretation of the data, based on clinical breakpoints (CPBs), inevitably leads to a loss of information. In particular, the distance of a measured inhibition zone diameter or minimum inhibitory concentration (MIC) from the CBP is not reported. As a consequence, clinicians lack the necessary information to assess the reliability of an AST categorisation in light of the inherent methodological variation.[@Maurer2014] Other laboratory tests, e.g. quantitative PCRs or tests employing serological parameters, typically report measurement precision allowing the clinician to assess whether a result is significantly distant from a standard value or range.[@Sloan2007;@Fierz1999] Reporting the associated methodological uncertainty of an AST categorisation would facilitate and potentially improve therapeutic decision-making.
+
+EUCAST quality control (QC) tables list the acceptable variation for inhibition zone diameters and MICs for QC strains and could be used to quantify the measurement precision.[@Eucast2016] However, the local epidemiology should be taken into account as well when estimating the methodological forecast probability, i.e. the probability that no major or very major misclassification error occurs due to methodological variation. In addition, laboratory-specific models for the methodological variation might result in more accurate estimates.
+
+In this study we present MASTER (Model for AST Error Rates), a mathematical tool that enables the calculation of forecast probabilities for inhibition zone diameters in order to complement AST categorisations and that fully accounts for a specific epidemiological setting. Additionally, the calculated forecast probabilities are used to define zones of methodological uncertainty (ZMUs) encompassing measurements which cannot reliably be classified as susceptible or resistant. Furthermore, MASTER can be used to evaluate CBPs in a systematic manner as carried out in an accompanying paper.[@Blochliger2017]
+
+
+
+
+
+
+
+
+
+# Methods
+
+## *Model for true and observed inhibition zone diameters*
+We developed MASTER to determine the methodological error for categorisation of Kirby-Bauer inhibition zone diameters. MASTER distinguishes between an observed inhibition zone diameter $Y$ that suffers from methodological variation and an underlying true diameter $X$ that is not observed. The relationship between $X$ and $Y$ is given by $Y=X+E$, where $E$ models the methodological variation.
+
+We model the distribution of the true diameter $X$ as a mixture of $n\geq2$ components with weights $w_i$ satisfying $w_i\geq 0$ and $\sum_{i=1}^nw_i=1$. The true diameter is 6\hspace{3pt}mm for the first component, which therefore captures all those strains whose growth is not affected by the antibiotic. For the other components the true diameter is normally distributed with means $\mu_i$ and variances $\sigma_i^2$. The cumulative distribution function of $X$ thus has the form
+\[
+F_X(x)=w_1H(x-6\hspace{3pt}\text{mm})+\sum_{i=2}^nw_i\Phi\left(\frac{x-\mu_i}{\sigma_i}\right),
+\]
+where $H$ is the Heaviside step function and $\Phi$ is the cumulative distribution function of the standard normal distribution.
+
+The true diameter $X$ is unknown, and we observe $Y=X+E$ instead. Our model for the methodological variation $E$ depends on the component. The variation associated with the first component is assumed to be zero. For the other components we assume $E$ to be normally distributed and independent of $X$ with zero mean and variance $\sigma_E^2$.
+
+Under these assumptions on $X$ and $E$ the cumulative distribution function of $Y$ is given by
+\[
+F_Y(y)=w_1H(y-6\hspace{3pt}\text{mm})+\sum_{i=2}^nw_i\Phi\left(\frac{y-\mu_i}{\sqrt{\sigma_i^2+\sigma_E^2}}\right).
+\]
+Note that we do not account for the fact that the observed diameters are typically rounded to integer values.
+
+## *Probabilities of methodological misclassification errors*
+Misclassification errors are traditionally split according to their therapeutic implications: Erroneous categorisations of true-susceptible isolates as resistant are referred to as "major errors" leading to unnecessary restriction of therapeutic options, whereas the most serious clinical implications do result from "very major errors", i.e. categorisation of true-resistant isolates as susceptible, as there is a high likelihood of therapeutic failure [@FDA2009]. Based on a pair of CBPs $z_S\geq z_R>6$\hspace{3pt}mm, strains are defined to be resistant if the true diameter satisfies $x<z_R$, intermediate if $z_R\leq x<z_S$, and susceptible if $z_S\leq x$. However, the prediction is based on the observed diameter $Y$, which due to the methodological variation $E$ inevitably results in misclassification errors. The probability that a very major methodological misclassification error occurs is, based on MASTER, $p_{vme}=p(X<z_R~\text{and}~Y\geq z_S)=\int_{-\infty}^{z_R}\int_{z_S}^\infty \left(\sum_{i=2}^nw_i\phi\left(x;\mu_i,\sigma_i^2\right)\right)\phi\left(y-x;0,\sigma_E^2\right)\,\mathrm{d}y\mathrm{d}x$, where $\phi(\,\cdot\,;\mu,\sigma^2)$ is the density function of a normally distributed random variable with mean $\mu$ and variance $\sigma^2$. Similarly, the probability of a major methodological misclassification error is $p_{me}=p(X\geq z_S~\text{and}~Y<z_R)=\int_{z_S}^\infty\int_{-\infty}^{z_R} \left(\sum_{i=2}^nw_i\phi\left(x;\mu_i,\sigma_i^2\right)\right)\phi\left(y-x;0,\sigma_E^2\right)\,\mathrm{d}y\mathrm{d}x$. In the present study we use the official CBPs issued by EUCAST throughout [@Eucast2016b].
+
+## *Forecast probabilities*
+Given an observed diameter $y$, what is the probability that no major or very major error occurred? This probability, which is a function of $y$, is the quantity of principal interest in the present work. Under the model developed above, the probability of a very major methodological misclassification error given $y$ is
+\[ p_{vme}(y) =
+  \begin{cases}
+    0  & \quad \text{if } y<z_S,\\
+    p(X<z_R|Y=y)=\frac{\int_{-\infty}^{z_R}\left(\sum_{i=2}^nw_i\phi\left(x;\mu_i,\sigma_i^2\right)\right)\phi\left(y-x;0,\sigma_E^2\right)\,\mathrm{d}x}{w_1I(y-6\hspace{3pt}\text{mm})+\sum_{j=2}^nw_j\phi\left(y;\mu_j,\sigma_j^2+\sigma_E^2\right)}  & \quad \text{else,}\\
+  \end{cases}
+\]
+where
+\[ I(y) =
+  \begin{cases}
+    1  & \quad \text{if } y=0,\\
+    0  & \quad \text{else.}\\
+  \end{cases}
+\]
+Similarly, the probability of a major methodological misclassification error given $y$ is
+\[ p_{me}(y) =
+  \begin{cases}
+    p(X\geq z_S|Y=y)=\frac{\int_{z_S}^{\infty}\left(\sum_{i=2}^nw_i\phi\left(x;\mu_i,\sigma_i^2\right)\right)\phi\left(y-x;0,\sigma_E^2\right)\,\mathrm{d}x}{w_1I(y-6\hspace{3pt}\text{mm})+\sum_{j=2}^nw_j\phi\left(y;\mu_j,\sigma_j^2+\sigma_E^2\right)}  & \quad \text{if } y<z_R,\\
+    0  & \quad \text{else.}\\
+  \end{cases}
+\]
+The forecast probability, i.e. the probability given $y$ that no major or very major misclassification error occurs due to methodological variation, is then simply
+$$p_f(y)=1-p_{me}(y)-p_{vme}(y).$$
+
+## *Zone of methodological uncertainty (ZMU)*
+We can identify inhibition zone diameters for which the AST categorisation is ambiguous due to methodological variation based on the forecast probabilities $p_f(y)$. In particular, we define the ZMU to encompass the observed diameters which satisfy $p_f(y)<0.99$ or $z_R\leq y<z_S$. The ZMU thus contains all the observed diameters for which the risk of a major or very major error is higher than 1% or which are in the intermediate zone.
+
+## *Clinical isolates*
+Antimicrobial susceptibility data of non-duplicate, non-outbreak clinical *Escherichia coli* strains were used in this study.  All clinical isolates included were isolated over a five-year period from 2010 until 2014 in the routine clinical microbiology laboratory of the Institute of Medical Microbiology, University of Zurich. The majority of the isolates were grown from cultures of the University Hospital of Zurich, a 850-bed tertiary care hospital.
+
+## *Antibiotic susceptibility testing (AST)*
+AST was performed by the disk diffusion method following EUCAST standard procedures on Müller-Hinton II agar (Beckton-Dickinson, Franklin Lakes, NJ, USA) and with antibiotic discs from i2a (Montpellier, France). Inhibition zone diameters were recorded automatically using the Sirscan/Sirweb system (i2a, Montpellier, France) and exported using the built-in export function.[@Hombach2013] Isolates with inhibition zone sizes in the left tail area of the distribution curves were verified by visual inspection of the antibiogram pictures. Isolates were eliminated from the data set if errors were found (e.g. no plates, contaminated plates, wrong identification, inhibition zones wrongly measured, incompatibility with wild-type definition due to resistance to other beta-lactams). Isolates were considered duplicates and discarded if they originated from the same patient and showed at most one major and two minor differences in AST interpretation.[@Hombach2014] Table 1 lists all the antibiotics for which AST was performed and CBPs were available. Our data set comprised inhibition zone diameters from 9766 strains for the $\beta$-lactams, 3521 strains for the aminoglycosides, 9761 strains for the quinolones, and 1089 strains for tigecycline.
+
+## *Model fitting*
+We fitted our model to measured inhibition zone diameters as follows. First, we estimated $\sigma_E^2$ (the variance of the methodological variation) based on 153 independent repeated measurements of inhibition zone diameters for the QC strain ATCC 25922 using different lots of antibiotic discs and different lots of Müller-Hinton agar plates. Experiments were performed and read by different experienced persons at different days to ensure that the variation closely resembled routine conditions in our clinical laboratory (Table 1).
+
+Second, we used AST data to fit the parameters describing the distribution of the observed diameter $Y$. In particular, we estimated $w_1$ as the fraction of data points in the sample that are equal to 6\hspace{3pt}mm. The parameters of the normally distributed components of $Y$, i.e.\ $w_i$, $\mu_i$, and $\sigma_i^2+\sigma_E^2$, were estimated by fitting a normal mixture model of $n-1$ components to the data with observed diameters greater than 6\hspace{3pt}mm using the expectation-maximisation algorithm.[@Dempster1977] Models were generated for $n=2,\dots,10$, and the best one was selected based on the Bayesian information criterion[@Schwarz1978;@Fraley2002] after excluding models that did not satisfy $\sigma_i>0$, i.e. models that had a component with variance below $\sigma_E^2$. Our data set does not contain any strains with diameters below the CBP defining resistance for imipenem and tigecycline. We thus refrained from applying our model to these two antibiotics.
+
+We used quantile-quantile (Q-Q) plots to compare the empirical distribution of inhibition zone diameters with the fit from our model.[@Wilk1968] Briefly, Q-Q plots compare the quantiles of two distributions and are thus a graphical means for assessing similarity between them. If two distributions agree perfectly, their quantiles coincide and the plotted points lie on the identity line.
+
+## *Software*
+All computations were performed with the free software R, version `r paste(collapse='.', R.Version()[c('major', 'minor')])`.[@RCoreTeam2015] The normal mixture model was fitted using the R package mclust, version `r sessionInfo()$otherPkgs$mclust$Version`.[@Fraley2012]
+
+
+
+
+
+
+
+# Results
+
+## *Model fitting*
+Repeated measurements of the inhibition zone diameters for *E. coli* ATCC 25922 were in agreement with the ranges published in EUCAST QC tables.[@Eucast2016] The standard deviations of repeated measurements of the inhibition zone diameters for *E. coli* ATCC 25922 range from 1.2\hspace{3pt}mm to 2.0\hspace{3pt}mm (Table 1).
+
+Figure 1 visualises our model. The Q-Q plots show that MASTER describes the empirical distributions well. In particular, the model captures the accumulation of diameters of 6\hspace{3pt}mm. Furthermore, the model is sufficiently complex to capture for example non-normal distributions for wild-type strains (cefotaxime, Figure 1c). Differences between the fitted models and the data are most pronounced for large inhibition zone diameters (ampicillin, cefoxitin, ciprofloxacin, ertapenem, levofloxacin, meropenem, norfloxacin, Figure 1). In addition, the Q-Q plots indicate that the distributions of diameters are difficult to fit for three out of all 16 antibiotics, namely for ertapenem, gentamicin, and meropenem (Figures 1j, 1k, and 1m). For ertapenem and meropenem, this might be due to the small number of strains with observed diameters below the CBPs defining resistance (53 and 3 strains out of 9766 for ertapenem and meropenem, respectively). For gentamicin, the main peak of the distribution (centred at 22.5\hspace{3pt}mm, i.e.\ the part of the distribution encompassing the wild-type strains) seems too heavy-tailed to be described by a normal distribution.
+
+## *Forecast probabilities and ZMUs*
+The forecast probability, i.e. the probability that no major or very major error occurs due to methodological variation as a function of the observed diameter, is shown in Figure 1. The forecast probability was 1 within the intermediate zone and for observed diameters sufficiently distant from the CBPs. However, the forecast probability was smaller than 1 in the immediate vicinity of the intermediate zone or close to the CBP in settings without an intermediate zone (ampicillin, co-amoxiclav, cefoxitin, and cefuroxime). A forecast probability different from 1 can lead to major or very major misclassification errors.
+
+We use the term ZMU for the observed diameters in the intermediate zone or with a forecast probability below 0.99. The median width of the ZMU was 4\hspace{3pt}mm. For the antibiotics without an intermediate zone defined by EUCAST,[@Eucast2016b] the width of the ZMU varied between 5 and 7\hspace{3pt}mm (Table 1). The ZMU coincided with the intermediate zone for ertapenem, gentamicin, and tobramycin. For the remaining antibiotics, the ZMU extended the intermediate zone by 1 or 2\hspace{3pt}mm. For most antibiotics, MASTER predicted that less than 5% of all strains have observed diameters within the ZMU for our epidemiological situation. The exceptions were co-amoxiclav (41%) and cefoxitin (6%).
+
+
+
+
+# Discussion
+
+We developed a mathematical model, called MASTER, to estimate the probability that, given an observed inhibition zone diameter, no major or very major misclassification error occurs due to methodological variation. MASTER is based on two assumptions: First, the model assumes that the observed diameter is the sum of a true, unknown diameter and normally distributed methodological variation. A similar idea has been employed for inhibition zone diameters[@Craig2000;@Lamy2004;@Annis2005] as well as for log-transformed MIC measurements.[@Kassteele2012;@Annis2005b] The assumption that the magnitude of the methodological variation is constant for diameters larger than 6\hspace{3pt}mm is a common approximation that remains to be validated. Second, we modelled the distribution of the true diameters as a mixture of normal distributions, following an established approach. In particular, inhibition zone diameters of wild-type isolates are usually modelled as normally distributed, e.g.\ in the context of setting epidemiological cut-off values.[@Kronvall2003;@Turnidge2006] Furthermore, several models based on mixtures of normally distributed components have been suggested to describe the full distribution of log-transformed MIC measurements.[@Craig2000;@Meletiadis2012;@Canton2012]
+
+The Q-Q plots shown in Figure 1 illustrate that the discrepancies between the fitted models and the data were most pronounced for large inhibition zone diameters. These differences were negligible for our purpose since they pertained only to inhibition zone diameters that were much larger than the relevant CBPs. The discrepancies were most likely a consequence of the experimental setting that places an upper bound of 40\hspace{3pt}mm on the reported diameters. Introducing a separate component in the mixture model to capture isolates with a diameter of 40\hspace{3pt}mm could potentially alleviate this issue. In addition, the Q-Q plots showed that a sufficient amount of data from resistant strains is required for robust modelling by MASTER. For our particular epidemiological situation, this requirement was not met for ertapenem and meropenem (see Figures 1j and 1m).
+
+To apply MASTER to data collected by different laboratories it is mandatory to apply their individual methodological variations as reflected e.g. by repetitive measurements of QC strains. If aggregated data are used, the EUCAST or CLSI QC ranges could be used as a surrogate for the magnitude of the methodological variation as QC ranges usually reflect the 2-fold standard deviation next to a given target, i.e. a mean value.[@Eucast2016] Aggregated data contain different disk/agar plate manufacturers, and QC ranges were themselves based on aggregated data and thus, will reflect a reasonable estimate for the model. If an individual laboratory changes the manufacturer of antibiotic discs or agar plates, the methodological variation will also change[@Kahlmeter2016] and the model needs to be adjusted. 
+
+Craig has developed a similar model that has been used to compute the probability of correct classification as a function of the true MIC or inhibition zone diameter.[@Craig2000] It was used in the context of setting CBPs[@Craig2000] and to investigate the influence of interlaboratory variability.[@Annis2005b] However, the probability of correct classification as a function of the true diameter should not be confused with the probability of correct classification as a function of the *observed* diameter. The latter is the main quantity of interest from the point of view of a clinician and is the focus of MASTER. It is used here to derive forecast probabilities that can complement AST categorisations with a quantitative measure of uncertainty in order to guide clinical decisions regarding antimicrobial therapy.
+
+Finally, we used the calculated forecast probability to define a ZMU. The ZMU encompassed less than 5% of all strains for most of the antibiotics investigated in this study. However, the ZMUs of co-amoxiclav and cefoxitin contained 41% and 6% of all strains, respectively. We argue in an accompanying article that testing for co-amoxiclav should thus be discouraged, and we use MASTER to systematically evaluate established CBPs.[@Blochliger2017]
+
+
+# Acknowledgements
+
+We thank the technicians of the Institute of Medical Microbiology for expert help and assistance, and we are grateful to the Institute of Medical Microbiology and the University of Zurich for continuous support. We thank Giorgia Valsesia for data preprocessing.
+
+
+# Funding
+
+This work was supported by the University of Zurich.
+
+
+# Transparency declarations
+
+None to declare.
+
+
+\newpage
+
+\setlength{\parindent}{0pt}
+
+![](../20160513_ProbS/FigsMS1/fig1.png)
+**Figure 1.** Empirical (histogram) and fitted (black line) distributions for the observed diameters (top), Q-Q plots with identity lines in grey (middle), and forecast probabilities and zones of methodological uncertainty (ZMUs) in grey (bottom). EUCAST CBPs are indicated with dashed lines.[@Eucast2016b]
+
+![](../20160513_ProbS/FigsMS1/fig2.png)
+**Figure 1 (continued).**
+
+\newpage
+
+**Table 1.** Estimated standard deviation of the methodological variation, official CBPs (EUCAST[@Eucast2016b]) and zones of methodological uncertainty (ZMUs) derived from our model.
+\smallskip
+\begin{tabular}[c]{@{}lrrrrrrr@{}}
+\toprule
+& & \multicolumn{2}{c}{CBP/mm} & \multicolumn{4}{c}{$\text{ZMU}^\text{a}$}\\
+\cmidrule(r){3-4}\cmidrule(l){5-8}
+antibiotic & $\sigma_\text{E}$/mm & R & S & $min$/mm & $max$/mm &
+width/mm & weight/\%\tabularnewline
+\midrule
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+tab1 <- read.table("../20160513_ProbS/ms1Tab1_raw.csv", header=TRUE, sep=';') %>% arrange(antibiotic)
+tab1$weight.. <- round(tab1$weight..)
+tmp <- apply(tab1, 1, function(x) {if (any(is.na(x))) {x[1] <- paste0("$\\text{", x[1], "}^\\text{b}$"); x[is.na(x)] = "-"}; cat(sep="", paste(x, collapse="&"), "\\tabularnewline\n")})
+```
+\bottomrule
+\end{tabular}
+\smallskip
+$^\text{a}$We set $min$ and $max$ such that the ZMU is $\{y:min\leq y<max\}$. If the ZMU coincides with the intermediate zone, $min$ and $max$ are equal to the CBPs. The weight of the ZMU is defined as the empirical fraction of data points that lie in the ZMU.
+
+$^\text{b}$The data set does not contain any strains with diameters below the CBP defining resistance for imipenem and tigecycline. We thus refrained from applying our model to these two antibiotics.
+
+\newpage
+
+# References

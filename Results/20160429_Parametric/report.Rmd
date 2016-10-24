@@ -1,0 +1,357 @@
+---
+title: "Forecast probabilities - work in progress"
+author: "Nicolas Blöchliger, Institute of Medical Microbiology, University of Zurich"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  pdf_document:
+    fig_caption: yes
+    number_sections: true
+    toc: true
+    keep_tex: true
+
+linkcolor: black
+bibliography: ../../../../Bibliography/literature.bib
+csl: ../../../../Bibliography/computer-physics-communications.csl
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(gdata) # read.xls()
+library(ggplot2)
+library(reshape2)  # melt()
+library(scales)  # pretty_breaks()
+library(plyr)  # revalue()
+library(tidyr)  # spread()
+library(RColorBrewer)
+library(gridExtra)  # grid.arrange()
+library(printr)
+library(deamer)  # deamerKE()
+library(tidyr)
+library(mclust)  # mclust()
+library(dplyr)  # select()
+library(pander)
+library(grid)  # unit.pmax
+library(gtable)  # rbind.gtable()
+```
+
+```{r, echo=FALSE, results='asis'}
+getLegend<-function(myggplot){
+  # This function returns the legend of a ggplot-objet.
+  # Function taken from www.sthda.com/english/wiki/ggplot2-easy-way-to-mix-multiple-graphs-on-the-same-page-r-software-and-data-visualization
+  tmp <- ggplot_gtable(ggplot_build(myggplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+
+discrData <- function(x, delta6=TRUE, modelName='E', nComp=2) {
+  if (nComp == 2) {
+    colsComp <- brewer.pal(5, 'PuOr')[c(2, 4)]
+    colsComp <- brewer.pal(3, 'Set2')[2:3]
+  } else {
+    colsComp <- brewer.pal(nComp, 'Set2')
+  }
+  colsComp <- c(1, colsComp)
+  
+  
+  title <- colnames(x)
+  x <- as.double(as.matrix(x))
+  
+  if (delta6) {
+    w6 <- mean(x == 6)
+    xToFit <- x[x > 6]
+  } else {
+    w6 <- NA
+    xToFit <- x
+  }
+  mdl <- densityMclust(xToFit, G=nComp, modelNames=modelName)  # we use equal variance to ensure that there is only one decision boundary
+  
+  s <- sqrt(ifelse(rep(mdl$modelName == 'E', nComp), rep(mdl$parameters$variance$sigmasq, nComp), mdl$parameters$variance$sigmasq))  # standard deviations of the different components
+  wComb <- mdl$parameters$pro
+  wCombStr <- paste0(round(wComb, digits=2), collapse=', ')
+  if (delta6) {
+    wComb = (1 - w6) * wComb
+    wComb[1] = w6 + wComb[1]
+    wCombStr <- paste0(round(wComb[1], digits=2), ' (', round(w6, digits=2), '+', round(mdl$parameters$pro[1], digits=2), '), ', round(wComb[2], digits=2))
+    wCombStr <- paste0(round(c(w6, mdl$parameters$pro), digits=2), collapse=', ')
+  }
+  
+  cat('\n\n\\pagebreak\n')
+  pandoc.header(title, 2)
+  cat(sep='', '\n$\\mu_{2,3}=$ ', paste0(unname(round(mdl$parameters$mean, digits=1)), collapse=' mm, '), ' mm. $\\sqrt{\\sigma^2+\\sigma_E^2}=$ ', paste0(round(sqrt(mdl$parameters$variance$sigmasq), digits=1), collapse=' mm, '), ' mm. $w=$ ', wCombStr, '.\n\n')
+  
+  
+  # Densities:
+  xx <- seq(from=5.5, to=40.5, length.out=1000)
+  densComp <- predict(mdl, xx, what='cdens')
+  for (i in 1:nComp) {
+    densComp[, i] = mdl$parameters$pro[i] * densComp[, i]
+  }
+  if (delta6) {
+    densComp = densComp * (1 - w6)
+    densComp[5.5 < xx & xx <= 6.5, 1] = densComp[5.5 < xx & xx <= 6.5, 1] + w6
+  }
+  dens <- data.frame(diameter=xx, mix=rowSums(densComp), densComp)
+  names(dens) = c('diameter', 'mix', 1:nComp)
+  dDens <- melt(dens, id.vars='diameter', variable.name='component', value.name='density')
+  
+  pDens <- ggplot(data.frame(diameter=x)) + geom_bar(aes(x=diameter, y=(..count..)/sum(..count..))) + geom_line(data=dDens, aes(x=diameter, y=density, color=component), size=1) + scale_colour_manual(values=colsComp) + xlab('observed diameter / mm') + ylab('density') + theme(legend.position = "top")
+  leg <- getLegend(pDens)
+  pDens <- ggplot_gtable(ggplot_build(pDens + theme(legend.position="none")))
+  
+  
+  # Cumulative distribution functions:
+  cdf <- sapply(1:nComp, function(i) pnorm(xx, mean=mdl$parameters$mean[i], sd=s[i]))
+  if (delta6) {
+    cdf[, 1] = apply(cbind(xx > 6, cdf[, 1]), 1, weighted.mean, w=c(w6, (1 - w6) * mdl$parameters$pro[1]))
+  }
+  cdfMix <- apply(cdf, 1, weighted.mean, w=wComb)
+  tmp <- data.frame(diameter=xx, mix=cdfMix, cdf)
+  names(tmp) = c('diameter', 'mix', 1:nComp)
+  dCdf <- melt(tmp, id.vars='diameter', variable.name='component', value.name='cdf')
+  
+  pCdf <- ggplot_gtable(ggplot_build(ggplot(data.frame(diameter=x), aes(x=diameter)) + stat_ecdf(colour='grey35', size=1) + geom_line(data=dCdf, aes(x=diameter, y=cdf, color=component), size=1) + scale_colour_manual(values=colsComp) + xlab('observed diameter / mm') + ylab('cdf') + coord_cartesian(xlim=c(5.5, 40.5)) + theme(legend.position="none")))
+  
+  
+  # P(component = i | observed diameter)
+  tmp <- data.frame(diameter=xx, t(apply(select(dens, -diameter, -mix), 1, function(x) x / sum(x))))
+  # tmp <- data.frame(diameter=xx, predict.Mclust(mdl, xx)$z)
+  names(tmp) = c('diameter', 1:nComp)
+  t <- round(tmp[which.min(abs(tmp[, 2] - 0.5)), 1])  # diameter at which probability for the first component is about 0.5
+  tmp <- melt(tmp, id.vars='diameter', variable.name='component', value.name='p')
+  pPred <- ggplot_gtable(ggplot_build(ggplot(tmp, aes(x=diameter, y=p, color=component)) + geom_line(size=1) + xlab('observed diameter / mm') + ylab('P(component\n| observed diameter)') + scale_colour_manual(values=colsComp[-1]) + theme(legend.position="none")))
+  
+  # Plot
+  maxWidth <- unit.pmax(pDens$widths[2:3], pCdf$widths[2:3], pPred$widths[2:3])
+  pDens$widths[2:3] = maxWidth
+  pCdf$widths[2:3] = maxWidth
+  pPred$widths[2:3] = maxWidth
+  
+  p1 <- arrangeGrob(leg, pDens, pCdf, pPred, ncol=1, heights=c(0.2, rep(1, 3)))
+  
+  # QQ-Plot
+  p <- (1:length(x)) / length(x)
+  if (delta6) {
+    pJump <- (1 - w6) * cdfMclust(mdl, 6)$y
+    theorQuant <- rep(6, length(p))
+    for (i in 1:2) {
+      if (i == 1) {
+        idx <- p < pJump
+      } else if (i == 2) {
+        idx <- (pJump + w6) < p
+      }
+      if (any(idx)) {
+        theorQuant[idx] = quantileMclust(mdl, (p[idx] - w6 * (i == 2)) / (1 - w6))
+      }
+    }
+  } else {
+    theorQuant <- quantileMclust(mdl, p)
+  }
+  dQuantiles <- data.frame(sample=sort(x), theoretical=theorQuant)
+  pQQ <- ggplot(dQuantiles, aes(x=theoretical, y=sample)) + geom_point(size=0.2) + geom_abline(colour='grey35') + xlab('theoretical quantile / mm') + ylab('sample quantile / mm') + ggtitle('Q-Q plot') + coord_fixed()
+  # pQQ = NULL
+  
+  return(list(mdl, t, w6, p1, pQQ))
+}
+
+
+
+
+
+
+
+plotDeconvolution <- function(x, mdl, sigma=c(0, 2), t=t, w6=0, delta6, ...) {
+  stopifnot(min(sigma) >= 0)
+  sigma <- sigma[min(mdl$parameters$variance$sigmasq) > sigma ^ 2]
+  stopifnot(mdl$parameters$variance$sigmasq > max(sigma ^ 2))
+  
+  # Compute density of true diameter:
+  xx <- seq(from=5.5, by=0.1, to=40.5)
+  
+  dDens <- data.frame()
+  for (s in sigma) {
+    thisMdl <- mdl
+    thisMdl$parameters$variance$sigmasq <- mdl$parameters$variance$sigmasq - s ^ 2
+  
+    dens <- predict(thisMdl, xx, what='dens')
+    if (delta6) {
+      dens = dens * (1 - w6)
+      dens[5.5 < xx & xx <= 6.5] = dens[5.5 < xx & xx <= 6.5] + w6
+    }
+    dDens <- rbind(dDens, data.frame(diameter=xx, sigma=s, density=dens))
+  }
+  dDens$sigma <- factor(dDens$sigma)
+  
+  # Plot:
+  cols <- brewer.pal(length(sigma) + 1, 'Greens')[-1]
+  pDens <- ggplot(data.frame(diameter=unname(x))) + geom_bar(aes(x=diameter, y=(..count..)/sum(..count..))) + geom_line(data=dDens, aes(x=diameter, y=density, color=sigma), size=1) + scale_colour_manual(values=cols) + xlab('observed or true diameter / mm') + ylab('density') + guides(colour=guide_legend(title=expression(sigma[epsilon]/"mm"))) + theme(legend.position="top")
+  leg <- getLegend(pDens)
+  pDens <- ggplot_gtable(ggplot_build(pDens + theme(legend.position="none")))
+  
+  
+  # Compute p(X<=t|Y=y):
+  yy <- seq(from=5.5, by=0.1, to=40.5)
+  pY <- predict(mdl, yy, what='dens')
+  bw <- 0.01
+  xx <- seq(from=0, by=bw, to=t)
+  dP <- data.frame()
+  for (s in sigma) {
+    p <- rep(NA, length(yy))
+    if (s == 0) {
+      p <- yy <= t
+    } else {
+      thisMdl <- mdl
+      thisMdl$parameters$variance$sigmasq <- mdl$parameters$variance$sigmasq - s ^ 2
+      
+      pX <- predict(thisMdl, xx, what='dens')
+      
+      for (i in 1:length(yy)) {
+        y <- yy[i]
+        pEps <- dnorm(y - xx, mean=0, sd=s)
+        pXY <- pX * pEps / pY[i]
+        if (delta6 & 5.5 < y & y <= 6.5) {
+          pXY <- pXY * (1 - w6) + w6 * (5.5 < xx & xx <= 6.5)
+        }
+        p[i] = sum(pXY) * bw
+      }
+    }
+    dP <- rbind(dP, data.frame(diameter=yy, sigma=s, p=p))
+  }
+  dP$sigma <- factor(dP$sigma)
+  
+  # Plot:
+  pThresh <- ggplot_gtable(ggplot_build(ggplot(dP, aes(x=diameter, y=p, color=sigma)) + geom_line(size=1) + scale_colour_manual(values=cols) + xlab('observed diameter / mm') + ylab(paste('P(true diameter <=', t, 'mm\n| observed diameter)')) + guides(colour=guide_legend(title=expression(sigma[epsilon]/"mm"))) + theme(legend.position="none")))
+  
+  
+  # Combine plots:
+  maxWidth <- unit.pmax(pDens$widths[2:3], pThresh$widths[2:3])
+  pDens$widths[2:3] = maxWidth
+  pThresh$widths[2:3] = maxWidth
+  
+  p2 <- arrangeGrob(leg, pDens, pThresh, ncol=1, heights=c(0.2, rep(1, 2)))
+}
+
+master <- function(x, delta6=TRUE, modelName='E', nComp=2, ...) {
+  if (delta6 & all(x > 6)) {
+    delta6 <- FALSE
+  }
+  fit <- discrData(x, delta6, modelName)
+  mdl <- fit[[1]]
+  t <- fit[[2]]
+  w6 <- fit[[3]]
+  p1 <- fit[[4]]
+  pQQ <- fit[[5]]
+  p2 <- plotDeconvolution(x=x, mdl=mdl, t=t, w6=w6, delta6=delta6, ...)
+  grid.arrange(p1, arrangeGrob(pQQ, p2), ncol=2)
+  return(mdl)
+}
+```
+
+```{r, echo=FALSE, results='asis', cache=TRUE}
+# d <- read.table("../../../20160202_MvaBetaLactams/Data/input.dat")
+dRaw <- read.xls("../../../20160314_MvaBetaLactams/Data/data.xlsx", sheet=1)
+
+x <- dRaw[, 9:22]
+y <- dRaw$TYPE..according.to.algorithm.
+y <- revalue(y, c('ESBL and  carbapenemase'='ESBL and carba', 'ESBL and AmpC and carbapenemase'='ESBL, AmpC, and carba'))
+d <- data.frame(x, class=y)
+```
+
+# Goals
+\label{sec:goals}
+
+#. Compute the probability that a strain is pseudo-WT given an observed diameter $y$.
+#. Compute the probability that a strain is susceptible according to official breakpoint given an observed diameter $y$.
+
+# Model
+
+We assume:
+
+\begin{itemize}
+\item The distribution of the true diameter $X$ is a mixture of three components with weights $w_i=p(C=i)$, where $C$ encodes the component. The true diameter is 6\hspace{3pt}mm for the first component and normally distributed for the other two components:
+\[
+p_i(x)=f_X(x|C=i)=
+  \begin{cases}
+    \delta_6(x)       & \quad \text{if } i=1,\\
+    \phi(x;\mu_i,\sigma^2)  & \quad \text{else,}\\
+  \end{cases}
+\]
+where
+\[ \delta_6(x) =
+  \begin{cases}
+    \infty       & \quad \text{if } x=6\hspace{3pt}\text{mm},\\
+    0  & \quad \text{else.}\\
+  \end{cases}
+\]
+Thus,
+\[
+f_X(x)=w_1\delta_6+\sum_{i=2}^3w_i\phi(x;\mu_i,\sigma^2).
+\]
+
+\item We observe $Y=X+E$, where $E$ models technical error. $E$ is zero for the first component and normally distributed and independent of $X$ with mean $\mu_E=0$ and constant variance $\sigma_E^2$ for the other two components. The conditional density of $Y$ given the component $C$ is therefore
+\[ f_Y(y|C=i) =
+  \begin{cases}
+    \delta_6(y)       & \quad \text{if } i=1,\\
+    p_i\ast\phi(\hspace{1pt}\cdot\hspace{1pt};0,\sigma_E^2)=\phi(y;\mu_i,\sigma^2+\sigma_E^2)  & \quad \text{else.}\\
+  \end{cases}
+\]
+Thus,
+\[
+f_Y(y)=w_1\delta_6+\sum_{i=2}^3w_i\phi(y;\mu_i,\sigma^2+\sigma_E^2).
+\]
+Note that we do not account for the fact that the observed data are rounded to integer values.
+\end{itemize}
+
+## Estimation of model parameters
+* We estimate $w_1$ as the fraction of data points in the sample that are equal to 6\hspace{3pt}mm.
+* The parameters of the second and third component of $Y$, i.e.\ $w_i$, $\mu_i$, and $\sigma^2+\sigma_E^2$, are estimated by fitting a normal mixture model of two components to the data in the sample with diameters greater than 6\hspace{3pt}mm. We use the R package `mclust`.
+* Estimates for the variance of the error $\sigma_E^2$ will be taken from independent work in order to obtain $\sigma^2$.
+
+## Limitations of the model
+* The model does not account for the fact that $X\geq6$\hspace{3pt}mm. As long as the means of the two components are sufficiently large (say $\mu_i-6\hspace{3pt}\text{mm}>2\sigma$), this should not cause problems.
+* The model does not account for the fact that $Y\leq40$\hspace{3pt}mm. As long as the means of the two components are sufficiently small (say $40\hspace{3pt}\text{mm}-\mu_i>2\sigma$), this should not cause problems.
+* The error is assumed to be normally distributed with constant variance. This assumption is obviously violated if $X$ is close to 6 or 40\hspace{3pt}mm. It is also violated for antibiotics like CPD, for which diameters are distorted in order to avoid additional laborious tests.
+* The distributions of the two components are assumed to be normal. This seems fine for the component corresponding to wild-type strains. However, the distribution of the component corresponding to the resistant strains with $X>6$\hspace{3pt}mm might not be adequately modelled.
+* The variances of the two components are assumed to be equal. This assumption is problematic but has the advantage of guaranteeing that there is only one decision boundary if strains are assigned to the more likely component.
+
+# Data
+
+*E. coli*, $\beta$-lactams. *To be completed.*
+
+# Results
+
+The figures in this document are organized as follows. Note that the the first and the second component are combined for visualisation.
+
+* Top-left: Histogram of sample and the estimated density of $Y$ (black) and its components (coloured). The contribution from the first component ($\delta_6$) is visualised as a uniform distribution with support [5.5\hspace{3pt}mm, 6.5\hspace{3pt}mm].
+* Middle-left: Empirical cumulative distribution function (cdf) of $Y$ (grey), its estimate (black) and estimated cdfs for the components of $Y$ (coloured).
+* Bottom-left: $p(C=i|Y=y)$, i.e.\ the probability that a data point is associated with component $i$ given an observed diameter $y$. For this calculation, the first two components were grouped together.
+* Top-right: Q-Q plot. If the estimated density of $Y$ explained the data perfectly, all point would lie on the identity line (grey).
+* Middle-right: Histogram of sample and the estimated density of $X$ for various values of $\sigma_E$.
+* Bottom-right: $p(X\leq t|Y=y)$, i.e.\ the probability that the true diameter is below a breakpoint $t$ given an observed diameter $y$. For the time being, $t$ was set such that $p(C=i|Y=t)\approx0.5$.
+
+```{r, echo=FALSE, fig.height=8.25, results='asis'}
+# , fig.width=3.5
+x <- d[, 1:14]
+foo <- sapply(1:ncol(x), function(z) {master(x[, z, drop=FALSE], modelName='E')})
+# foo <- sapply(1:ncol(x), function(z) {master(x[x[, z] < 40, z, drop=FALSE])})
+```
+
+# Conclusion
+
+In discussions with Peter Keller and Michael Hombach on May, 11th and 12th, 2016, we decided to split this project according to the goals stated in Sec.\ \ref{sec:goals}. Roadmap:
+
+* Compare $p$(pseudo-WT|observed diameter) with ground truth.
+* Compute the probability of very major errors for CBP and CBP + 2 mm.
+* Investigate robustness of model $p$(S|observed diameter).
+* Extend analysis to quinolones, tetracyclines, aminoglycosides, cholistin, etc.\ using data cleaned by Giorgia Valsesia.
+* Plan manuscript.
+* Meet with Marc Schmid regarding implementation.
+
+# Appendix
+
+```{r, echo=FALSE, fig.height=8, fig.cap="\\label{fig:allDistr}Distributions of diameters."}
+cols <- brewer.pal(8, 'Set2')[c(6, 3, 4, 2, 7:8, 1, 5)]
+
+tmp <- melt(d, id.vars='class', variable.name='antibiotic', value.name='diameter')
+
+ggplot(tmp, aes(x=diameter, color=class)) + geom_freqpoly(origin=(min(tmp$diameter) - 0.5), binwidth=1, size=1) + facet_wrap(~ antibiotic) + xlab('diameter / mm') + ylab('count of strains (linear scale)') + theme(legend.position="top") + scale_colour_manual(values=cols) + ylab('count of strains (logarithmic scale)') + scale_y_log10()
+```

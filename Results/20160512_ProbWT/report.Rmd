@@ -1,0 +1,358 @@
+---
+title: "Forecast probabilities - work in progress"
+author: "Nicolas Blöchliger, Institute of Medical Microbiology, University of Zurich"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  pdf_document:
+    fig_caption: yes
+    number_sections: true
+    toc: true
+    keep_tex: true
+header-includes:
+   - \usepackage{verbatim}
+   
+linkcolor: black
+bibliography: ../../../../Bibliography/literature.bib
+csl: ../../../../Bibliography/computer-physics-communications.csl
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+source('../../Scripts/loadLibs.R')
+source('master.R')
+source('../../Scripts/helper.R')
+
+options(digits=2)
+```
+
+```{r, echo=FALSE, results='asis'}
+master <- function(x, class, cbp, delta6=TRUE, modelName='E', nComp=2, ...) {
+  stopifnot(nrow(x) == length(class))
+  stopifnot(is.logical(delta6))
+  stopifnot(modelName %in% c('E', 'V'))
+  stopifnot(nComp > 1)
+  
+  if (delta6 & all(x > 6)) {
+    delta6 <- FALSE
+  }
+  
+  antibiotic <- colnames(x)
+  x <- as.double(as.matrix(x))
+  
+  # Fit model:
+  mdl <- getMdl(x, delta6, modelName, nComp)
+
+  # Print summary of model:
+  pandoc.header(antibiotic, 3)
+  printSummary(mdl)
+  
+  # Generate panels of figure:
+  pltDens <- plotDensity(x, mdl, cbp, type='phenotype')
+  pltCdf <- plotCdf(x, mdl, cbp, type='phenotype')
+  pltQQ <- myQQPlot(x, mdl)
+  tmp <- plotPWt(antibiotic, x, mdl, cbp, class)
+  pltPWt <- tmp$plot
+  widthUncertain <- tmp$width
+  
+  # Arrange figure:
+  leg <- getLegend(pltDens)
+  grid.arrange(arrangeGrob(leg, pltDens + theme(legend.position="none"), pltCdf + theme(legend.position="none"), heights=c(0.2, rep(1, 2))), arrangeGrob(pltQQ, pltPWt), ncol=2)
+
+  return(widthUncertain)
+}
+
+
+plotPWt <- function(antibiotic, x, mdl, cbp, class) {
+  dens <- getDensity(mdl, type='phenotype')
+  pMdl <- (t(apply(select(dens, -diameter, -both), 1, function(x) x / sum(x))))[, 'wt']
+  dPWt <- data.frame(diameter=dens$diameter, p=pMdl, foo='model')
+  rangeUncertain <- range(dPWt$diameter[0.01 < dPWt$p & dPWt$p < 0.99])
+  dUncertain <- data.frame(xmin=rangeUncertain[1], xmax=rangeUncertain[2], ymin=-Inf, ymax=Inf)
+  
+  if (compareWGroundTruth(antibiotic)) {
+    tmp <- data.frame(diameter=x, phenotype=getGroundTruth(antibiotic, class))
+#     logReg <- glm(phenotype ~ diameter, data=tmp, family=binomial())
+#     dPWt <- rbind(dPWt, data.frame(diameter=6:40, p=predict(logReg, data.frame(diameter=6:40), type="response"), foo='ground truth'))
+    tmp2 <- table(tmp)
+    dGT <- data.frame(diameter=as.numeric(rownames(tmp2)), p=(tmp2[, 2] / (tmp2[, 1] + tmp2[, 2])), foo='ground truth')
+    dPWt <- rbind(dPWt, dGT)
+  }
+  
+  cols <- c(getColsComp(2)[3], 'grey35')
+  pPWt <- ggplot(dPWt, aes(x=diameter, y=p, color=foo)) + geom_rect(data=dUncertain, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax), fill=cols[1], alpha=0.2, inherit.aes = FALSE) + geom_vline(xintercept=c(cbp$R, cbp$S) - 0.5, linetype=2, na.rm=TRUE) + geom_line(size=1) + scale_colour_manual('', values=cols) + xlab('observed diameter / mm') + ylab('p(wt | observed diameter)') + theme(legend.position = "top")
+  if (compareWGroundTruth(antibiotic)) {
+    pPWt <- pPWt + geom_point(data=dGT)
+  }
+  return(list(plot=pPWt, width=diff(rangeUncertain)))
+}
+
+compareWGroundTruth <- function(antibiotic) {
+  return(antibiotic %in% c("AMC", "TPZ", "CXM", "CTX", "CAZ", "CRO", "FEP", "ETP", "IPM", "MEM"))
+}
+
+getGroundTruth <- function(antibiotic, class) {
+  wt1 <- c('wild-type')  # AMC and TPZ
+  wt2 <- c('BSBL/OTHERS', 'wild-type')  # CXM, CTX, CAZ, CRO
+  wt3 <- c('AmpC', 'BSBL/OTHERS', 'wild-type')  # FEP
+  wt4 <- c('AmpC', 'BSBL/OTHERS', 'ESBL', 'ESBL and AmpC', 'wild-type')  # ETP, IPM, MEM
+  wt <- list(AMC=wt1, TPZ=wt1, CXM=wt2, CTX=wt2, CAZ=wt2, CRO=wt2, FEP=wt3, ETP=wt4, IPM=wt4, MEM=wt4)
+  return(class %in% wt[[antibiotic]])
+}
+```
+
+```{r, echo=FALSE, results='asis', cache=TRUE}
+d <- list()
+
+# Beta-lactams:
+dRaw <- read.xls("../../../20160314_MvaBetaLactams/Data/data.xlsx", sheet=1)
+x <- dRaw[, 9:22]
+y <- dRaw$TYPE..according.to.algorithm.
+y <- revalue(y, c('ESBL and  carbapenemase'='ESBL and carba', 'ESBL and AmpC and carbapenemase'='ESBL, AmpC, and carba'))
+d$BetaLactams <- data.frame(x, class=y)
+
+# Aminoglycosides:
+dRaw <- read.xls("../../../20160322_MvaEColiAminoglycosides/Data/E.coli_Aminoglycosides_Data_20160311.xlsx", sheet=1)
+x <- dRaw[, c('K', 'CN', 'TOB')]
+names(x) <- c('KAN', 'GEN', 'TOB')
+# y <- dRaw$TYPE..according.to.ECOFF.based.algorithm.
+# y <- revalue(y, c('Impossible phenotype / AAC(3)-I or AAC(3)-VI '='Impossible phenotype / AAC(3)-I or AAC(3)-VI'))
+d$Aminoglycosides <- data.frame(x, class=NA)
+
+# Quinolones:
+dRaw <- read.xls("../../Data/quinolones.xlsx", sheet=1)
+x <- dRaw[, c('NA.', 'NOR', 'CIP', 'LEV')]
+names(x)[1] <- 'NAL'
+d$Quinolones <- data.frame(x, class=NA)
+
+# Tetracyclines:
+dRaw <- read.xls("../../Data/tetracyclines.xlsx", sheet=1)
+x <- dRaw[, c('TE', 'MI', 'TGC')]
+d$Tetracyclines <- data.frame(x, class=NA)
+
+cbp <- readCBPs()
+
+nAntibiotics <- sum(sapply(d, ncol) - 1)
+```
+
+# Goal
+\label{sec:goals}
+
+The main goal of the present work is to estimate the probability that a strain is wild-type (wt) given an observed diameter $y$.
+
+# Model
+
+We assume that the distribution of the observed diameter $Y$ of a given antibiotic-species combination is a mixture of three components with weights $w_i=p(C=i)$, where $C$ encodes the component. The observed diameter is 6\hspace{3pt}mm for the first component and normally distributed for the other two components:
+\[
+p_i(y)=f_Y(y|C=i)=
+  \begin{cases}
+    \delta_6(y)       & \quad \text{if } i=1,\\
+    \phi(y;\mu_i,\sigma_Y^2)  & \quad \text{else,}\\
+  \end{cases}
+\]
+where
+\[ \delta_6(y) =
+  \begin{cases}
+    \infty       & \quad \text{if } x=6\hspace{3pt}\text{mm},\\
+    0  & \quad \text{else.}\\
+  \end{cases}
+\]
+Thus,
+\[
+f_Y(y)=w_1\delta_6+\sum_{i=2}^3w_i\phi(y;\mu_i,\sigma_Y^2).
+\]
+
+The idea is that the last component corresponds to the wild-type strains while the other two components correspond to strains that are resistant to the given antibiotic.
+
+Note:
+
+* We do not account for the fact that the observed data are rounded to integer values.
+* No model for the technical error is needed for the present work.
+
+
+## Estimation of model parameters
+* We estimate $w_1$ as the fraction of data points in the sample that are equal to 6\hspace{3pt}mm.
+* The parameters of the second and third component of $Y$, i.e.\ $w_i$, $\mu_i$, and $\sigma_Y^2$, are estimated by fitting a normal mixture model with two components to the data in the sample with diameters greater than 6\hspace{3pt}mm. We use the R package `mclust`.
+
+## Limitations of the model
+* The model does not account for the fact that $Y\geq6$\hspace{3pt}mm. As long as the means of the two components are sufficiently large (say $\mu_i-6\hspace{3pt}\text{mm}>2\sigma$), this should not cause problems.
+* The model does not account for the fact that $Y\leq40$\hspace{3pt}mm. As long as the means of the two components are sufficiently small (say $40\hspace{3pt}\text{mm}-\mu_i>2\sigma$), this should not cause problems.
+* The distributions of the second and the third components are assumed to be normal. This seems fine for the component corresponding to wild-type strains. However, the distribution of the non-wild-type strains with $X>6$\hspace{3pt}mm might not be adequately modelled.
+* The variances of the two components are assumed to be equal. This assumption is problematic but has the advantage of guaranteeing that there is only one decision boundary if strains are assigned to the most likely component.
+
+
+
+
+
+# Data
+
+Raw data for the beta-lactams was obtained from Giorgia Valsesia on 11.03.2016. It contains measurements for `r nrow(d$BetaLactams)` *E. coli* strains collected from January 2010 until March 2014.
+
+Raw data for the aminoglycosides was obtained from Giorgia Valsesia on 15.03.2016. It contains measurements for `r nrow(d$Aminoglycosides)` *E. coli* strains.
+
+Raw data for the quinolones was obtained from Giorgia Valsesia on 18.05.2015. It contains measurements for `r nrow(d$Quinolones)` *E. coli* strains collected from February 2011 until May 2014.
+
+Raw data for the tetracyclines was obtained from Giorgia Valsesia on 18.05.2015. It contains measurements for `r nrow(d$Tetracyclines)` *E. coli* strains collected from January 2010 until May 2014.
+
+The following `r nAntibiotics` antibiotics were used:
+
+antibiotic                    | abbreviation
+------------------------------|-------------
+ampicillin                    | AM10
+cephalothin                   | KF
+cefoxitin                     | FOX
+cefpodoxime                   | CPD
+amoxicillin - clavulanic acid | AMC
+piperacillin - tazobactam     | TPZ
+cefuroxime                    | CXM
+cefotaxime                    | CTX
+ceftazidime                   | CAZ
+ceftriaxone                   | CRO
+cefepime                      | FEP
+ertapenem                     | ETP
+imipenem                      | IPM
+meropenem                     | MEM
+kanamycin                     | KAN
+gentamicin                    | GEN
+tobramycin                    | TOB
+nalidixic acid                | NAL
+norfloxacin                   | NOR
+ciprofloxacin                 | CIP
+levofloxacin                  | LEV
+minocycline                   | MI
+tetracycline                  | TE
+tigecycline                   | TGC
+
+## Ground truth for beta-lactams
+
+The strains for which measurements of zone diameters of beta-lactams are available were assigned to `r nlevels(d$BetaLactams$class)` classes based on the zone diameters additional confirmation tests as follows.
+
+1. Confirmation tests were conducted if the FOX diameter was $\leq$ 18 mm (suspicion of AmpC production), if a strain was categorized as I or R for 3rd/4th generation cephalosporins according to EUCAST CBPs or synergy with clavulanic acid or tazobactam was observed (ESBL screening markers), if the MEM diameter was $\leq$ 25 mm (carbapenemase screening marker), and in some other cases [refer to manual bacteriology IMM UZH and Giorgia Valsesia for additional explanations]. In particular, note that the AmpC confirmation test was run in parallel with the ESBL and carbapenemase confirmation assays even if the FOX diameter was > 18 mm.
+2. Strains were assigned to the classes AmpC, ESBL, and carba (or combinations thereof) if the corresponding confirmation test was conducted and positive.
+3. The remaining strains were assigned to BSBL/OTHERS if the AM10 diameter was $\leq$ 14 mm and to wild-type otherwise.
+
+We used these class assignments to define the antibiotic-specific wild type, which is used as the ground truth to evaluate our model:
+
+antibiotic                    | definition of antibiotic-specific wild type
+------------------------------|--------------------------------------------
+amoxicillin - clavulanic acid | wt
+piperacillin - tazobactam     | wt
+cefuroxime                    | wt and BSBL/OTHERS
+cefotaxime                    | wt and BSBL/OTHERS
+ceftazidime                   | wt and BSBL/OTHERS
+ceftriaxone                   | wt and BSBL/OTHERS
+cefepime                      | wt, BSBL/OTHERS, and AmpC
+ertapenem                     | wt, BSBL/OTHERS, AmpC, and ESBL
+imipenem                      | wt, BSBL/OTHERS, AmpC, and ESBL
+meropenem                     | wt, BSBL/OTHERS, AmpC, and ESBL
+
+The antibiotics ampicillin, cephalothin, cefoxitin, and cefpodoxime were used to define the classes and are thus excluded.
+
+General characteristics of the data associated with the beta-lactams are given in the appendix.
+
+
+
+
+# Results
+
+In the figures on the next pages, dashed vertical lines indicate CBPs (if available) according to http://www.eucast.org/fileadmin/src/media/PDFs/EUCAST_files/Breakpoint_tables/v_6.0_Breakpoint_table.xls (13.05.2016, see Appendix). The figures are organized as follows. Note that the the first and the second component are combined for visualisation.
+
+* Top-left: Histogram of sample and the estimated density of $Y$ (black) and its components (coloured). The contribution from the first component ($\delta_6$) is visualised as a uniform distribution with support [5.5\hspace{3pt}mm, 6.5\hspace{3pt}mm].
+* Bottom-left: Empirical cumulative distribution function (cdf) of $Y$ (grey), its estimate (black) and estimated cdfs for the components of $Y$ (coloured).
+* Top-right: Q-Q plot. If the estimated density of $Y$ explained the data perfectly, all points would lie on the identity line (grey).
+* Bottom-right: $p(\text{wt}|Y=y)$, i.e.\ the probability that a strain is wt given an observed diameter $y$ for the model (blue) and according to the ground truth (grey, if available). For this calculation, the last component is assumed to describe the wt population. A diameter value is defined to be in a zone of uncertainty if the associated model-based probability for wt is between 0.01 and 0.99, and this zone of uncertainty is indicated with a blue rectangle. The widths of these zones listed towards the end of this document.
+
+```{r, echo=FALSE, fig.height=7, results='asis'}
+antibioticsLst <- unlist(lapply(d, colnames), use.names=FALSE)
+antibioticsLst <- antibioticsLst[antibioticsLst != 'class']
+stopifnot(nAntibiotics == length(antibioticsLst))
+widthUncertain <- data.frame(antibiotic=antibioticsLst, w=rep(NA, nAntibiotics))
+cat('\n\n\\pagebreak\n')
+for (i in 1:length(d)) {
+# for (i in 1) {
+  abClass <- names(d)[i]
+  if (abClass == 'BetaLactams') {
+    abClass <- 'Beta-lactams'
+  }
+  pandoc.header(abClass, 2)
+  for (j in 1:(ncol(d[[i]]) - 1)) {
+  # for (j in 4:5) {
+    x <- d[[i]][, j, drop=FALSE]
+    idx <- !is.na(x)
+    x <- x[idx, 1, drop=FALSE]
+    ab <- colnames(x)
+    tmp <- master(x=x, class=d[[i]]$class[idx], cbp=cbp[cbp$antibiotic == ab, 2:3], modelName='E')
+    widthUncertain$w[widthUncertain$antibiotic == ab] = tmp
+    cat('\n\n\\pagebreak\n')
+  }
+}
+colnames(widthUncertain) <- c('antibiotic', 'width of zone of uncertainty / mm')
+cat('\n\n\\pagebreak\n')
+kable(widthUncertain)
+```
+
+
+\begin{comment}
+# Discussion of Q-Q plots
+* AMC: Disagreement for large diameters.
+* KF: Minor disagreement for large diameters.
+* FOX: Minor disagreement for large diameters.
+* CPD: Disagreement around $Y\approx20$ mm due to "psychological effect".
+* AMC: No disagreement.
+* TPZ: No disagreement.
+* FOX: Minor disagreement for $Y\approx10$ mm.
+* CTX, CAZ: ?
+* CRO: Disagreement since the distribution corresponding to non-wt is skewed.
+* FEP: No disagreement.
+* ETP, MEM, and ITP: The two normally distributed components obtained from fitting the observed distribution do not correspond to resistant and susceptible components. This is probably due to the fact that we have only three carba strains.
+* KAN:
+* GEN: The fit is poor for non-wt. The distribution for wt does not seem to be normal.
+* TOB: Distribution of non-wt is not normal.
+* NAL:
+* NOR: Fit of wt distribution is distorted due to the restriction $Y\leq40$ mm.
+* CIP: Distribution of non-wt is not normal. Fit of wt distribution is distorted due to the restriction $Y\leq40$ mm.
+* LEV: Distribution of non-wt is not normal. Fit of wt distribution is distorted due to the restriction $Y\leq40$ mm.
+* TE: Minor disagreement for non-wt distribution and for large diameters.
+* MI: No disagreement.
+* TGC: The two normally distributed components obtained from fitting the observed distribution do not correspond to resistant and susceptible components. This is due to the fact that we probably do not have any resistant strains.
+\end{comment}
+
+
+
+
+# Discussion of agreement with ground truth for beta-lactams
+* **AMC, TPZ:** We observe no agreement at all between model and ground truth due to the fact that the strains assigned to BSBL/OTHERS are defined to be non-wt for AMC and TPZ. If BSBL/OTHERS is defined to be wt for AMC and TPZ the results are qualitatively similar to the ones for CXM (data not shown).
+* **CXM:** For diameters above 15 mm the model agrees with the ground truth. For diameters in the range of 10 to 15 mm, the probabilities for wt derived from the ground truth are higher than the ones derived from the model. This is due to the fact that the strains assigned to BSBL/OTHERS are defined to be wt for CXM. This might be problematic given the differences between the distribution of diameters for BSBL/OTHERS and wt (see Appendix).
+* **CTX, CAZ, CRO, and FEP:** The curves of the probabilities for wt derived from the model are shifted towards lower diameters by about 2 to 3 mm with respect to the curves based on the ground truth.
+* **ETP, MEM, and ITP:** The two normally distributed components obtained from fitting the observed distribution do not correspond to resistant and susceptible components. This is most likely due to the fact that we have only three carba strains.
+
+
+\pagebreak
+
+# Appendix
+
+## Clinical breakpoints
+
+```{r, echo=FALSE}
+kable(cbp, col.names=paste0(c('', rep('CBP_', 2)), colnames(cbp), c('', rep('/mm', 2))), caption='Clinical breakpoints (CBPs).')
+```
+
+## Ground truth for beta-lactams
+
+### Classes
+
+The `r nrow(d$BetaLactams)` strains are distributed among the `r nlevels(d$BetaLactams$class)` classes as follows.
+
+```{r, echo=FALSE}
+t <- as.data.frame(table(d$BetaLactams$class))
+names(t) <- c('class', 'n')
+kable(t)
+```
+
+### Distributions
+
+```{r, echo=FALSE, fig.height=8, fig.cap="\\label{fig:allDistr}Distributions of diameters for beta-lactams."}
+cols <- brewer.pal(8, 'Set2')[c(6, 3, 4, 2, 7:8, 1, 5)]
+
+tmp <- melt(d$BetaLactams, id.vars='class', variable.name='antibiotic', value.name='diameter')
+
+ggplot(tmp, aes(x=diameter, color=class)) + geom_freqpoly(origin=(min(tmp$diameter) - 0.5), binwidth=1, size=1) + facet_wrap(~ antibiotic) + xlab('diameter / mm') + ylab('count of strains (linear scale)') + theme(legend.position="top") + scale_colour_manual(values=cols) + ylab('count of strains (logarithmic scale)') + scale_y_log10()
+```

@@ -1,0 +1,82 @@
+---
+title: "Forecast probabilities"
+author: "Nicolas Blöchliger, Institute of Medical Microbiology, University of Zurich"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  pdf_document:
+    fig_caption: yes
+    number_sections: true
+    toc: true
+    keep_tex: true
+
+linkcolor: black
+bibliography: ../../../../Bibliography/literature.bib
+csl: ../../../../Bibliography/computer-physics-communications.csl
+---
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(gdata) # read.xls()
+library(ggplot2)
+library(reshape2)  # melt()
+library(scales)  # pretty_breaks()
+library(plyr)  # revalue()
+library(tidyr)  # spread()
+library(RColorBrewer)
+library(gridExtra)  # grid.arrange()
+library(printr)
+library(deamer)  # deamerKE()
+library(tidyr)
+
+cols <- brewer.pal(10, "Paired")
+```
+
+# Results
+
+```{r, echo=FALSE, warning=FALSE}
+dRaw <- read.xls("../../Data/toyData.xlsx", sheet=1)[, 1]
+
+d <- data.frame(table(dRaw) / length(dRaw))
+names(d) <- c('diameter', 'y')
+d$diameter <- as.numeric(levels(d$diameter))[d$diameter]
+head(d)
+```
+
+# Test
+
+```{r, echo=FALSE, warning=FALSE}
+bw <- 5
+err <- dnorm(-bw:bw, sd=2)
+err <- err / sum(err)
+nErr <- 2 * bw + 1
+
+yConv <- convolve(d$y, err, type='open')
+
+yFT <- Re(fft(fft(c(d$y, rep(0, nErr - 1))) * fft(c(err, rep(0, nrow(d) - 1))), inv=TRUE))
+yFT <- yFT / sum(yFT)
+
+xHat <- Re(fft(fft(yConv) / fft(c(err, rep(0, nrow(d) - 1))), inv=TRUE))
+xHat <- xHat[c((length(xHat) - bw + 1):length(xHat), 1:(length(xHat) - bw))] / sum(xHat)
+
+
+dAll <- data.frame(diameter=(min(d$diameter) - bw):(max(d$diameter) + bw), x=c(rep(0, bw), d$y, rep(0, bw)), xHat=xHat, yConv=yConv, yFT=yFT) 
+ggplot(gather(dAll, 'type', 'density', 2:5), aes(x=diameter, y=density, colour=type, shape=type)) + geom_point() + geom_line() + scale_shape_manual(values=c(16, 4, 16, 4))
+```
+
+
+# Deconvolute
+
+```{r, echo=FALSE, warning=FALSE}
+bw <- 5
+err <- dnorm(-bw:bw, sd=2)
+err <- err / sum(err)
+nErr <- 2 * bw + 1
+
+xHat <- Re(fft(fft(d$y) / fft(c(rep(0, nrow(d) - nErr), err)), inv=TRUE))
+plot(xHat)
+xHat <- xHat[c((length(xHat) - bw + 1):length(xHat), 1:(length(xHat) - bw))] / sum(xHat)
+
+
+dAll <- data.frame(diameter=d$diameter, xHat=xHat, y=d$y)
+ggplot(gather(dAll, 'type', 'density', 2:3), aes(x=diameter, y=density, colour=type, shape=type)) + geom_point() + geom_line()
+```

@@ -1,0 +1,25 @@
+---
+title: "Forecast probabilities - Supplementary material"
+author: "Nicolas Blöchliger, Peter M. Keller, Michael Hombach. Institute of Medical Microbiology, University of Zurich, Gloriastrasse 30/32, 8006 Zürich, Switzerland"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  pdf_document:
+    fig_caption: yes
+    keep_tex: true
+
+linkcolor: black
+bibliography: ../../../../Bibliography/literature.bib
+csl: ../../../../Bibliography/computer-physics-communications.csl
+---
+
+\setlength{\parindent}{15pt}
+\setlength{\parskip}{0pt plus 1pt}
+
+# Supplementary figures
+
+![*caption to be written (see Figure 1 of main text)*](../20160513_ProbS/FigsMS1/figS1.png)
+
+![*caption to be written (see Figure 1 of main text)*](../20160513_ProbS/FigsMS1/figS2.png)
+
+
+\setlength{\parindent}{0pt}

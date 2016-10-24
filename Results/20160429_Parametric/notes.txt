@@ -1,0 +1,8 @@
+# To do
+
+* Allow the number of components to be variable.
+* Compute confidence intervals: e.g. bootstrap for P(component | observed diameter)
+* Issue warning if $|\mu-6\hspace{3pt}\text{mm}|>3\sigma$.
+* Try different distribution, e.g., gamma. Check the packages mixtools and flexmix.
+
+**For this goal, a model for the distribution of the wt is probably sufficient. The distribution of the non-wt could then be estimated as its complement. It could be obtained using Kronvall's method.**

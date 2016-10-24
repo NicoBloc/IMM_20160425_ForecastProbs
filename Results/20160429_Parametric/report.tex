@@ -1,0 +1,395 @@
+\documentclass[]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+    \usepackage{xltxtra,xunicode}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Mapping=tex-text,Scale=MatchLowercase}
+  \newcommand{\euro}{€}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\ifxetex
+  \usepackage[setpagesize=false, % page size defined by xetex
+              unicode=false, % unicode breaks when used with xetex
+              xetex]{hyperref}
+\else
+  \usepackage[unicode=true]{hyperref}
+\fi
+\hypersetup{breaklinks=true,
+            bookmarks=true,
+            pdfauthor={Nicolas Blöchliger, Institute of Medical Microbiology, University of Zurich},
+            pdftitle={Forecast probabilities - work in progress},
+            colorlinks=true,
+            citecolor=blue,
+            urlcolor=blue,
+            linkcolor=black,
+            pdfborder={0 0 0}}
+\urlstyle{same}  % don't use monospace font for urls
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\setcounter{secnumdepth}{5}
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\newcommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+  \title{Forecast probabilities - work in progress}
+  \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+  \author{Nicolas Blöchliger, Institute of Medical Microbiology, University of
+Zurich}
+  \preauthor{\centering\large\emph}
+  \postauthor{\par}
+  \predate{\centering\large\emph}
+  \postdate{\par}
+  \date{12/05/2016}
+
+
+
+\begin{document}
+
+\maketitle
+
+
+{
+\hypersetup{linkcolor=black}
+\setcounter{tocdepth}{2}
+\tableofcontents
+}
+\section{Goals}\label{goals}
+
+\label{sec:goals}
+
+\begin{enumerate}
+\itemsep1pt\parskip0pt\parsep0pt
+\item
+  Compute the probability that a strain is pseudo-WT given an observed
+  diameter \(y\).
+\item
+  Compute the probability that a strain is susceptible according to
+  official breakpoint given an observed diameter \(y\).
+\end{enumerate}
+
+\section{Model}\label{model}
+
+We assume:
+
+\begin{itemize}
+\item The distribution of the true diameter $X$ is a mixture of three components with weights $w_i=p(C=i)$, where $C$ encodes the component. The true diameter is 6\hspace{3pt}mm for the first component and normally distributed for the other two components:
+\[
+p_i(x)=f_X(x|C=i)=
+  \begin{cases}
+    \delta_6(x)       & \quad \text{if } i=1,\\
+    \phi(x;\mu_i,\sigma^2)  & \quad \text{else,}\\
+  \end{cases}
+\]
+where
+\[ \delta_6(x) =
+  \begin{cases}
+    \infty       & \quad \text{if } x=6\hspace{3pt}\text{mm},\\
+    0  & \quad \text{else.}\\
+  \end{cases}
+\]
+Thus,
+\[
+f_X(x)=w_1\delta_6+\sum_{i=2}^3w_i\phi(x;\mu_i,\sigma^2).
+\]
+
+\item We observe $Y=X+E$, where $E$ models technical error. $E$ is zero for the first component and normally distributed and independent of $X$ with mean $\mu_E=0$ and constant variance $\sigma_E^2$ for the other two components. The conditional density of $Y$ given the component $C$ is therefore
+\[ f_Y(y|C=i) =
+  \begin{cases}
+    \delta_6(y)       & \quad \text{if } i=1,\\
+    p_i\ast\phi(\hspace{1pt}\cdot\hspace{1pt};0,\sigma_E^2)=\phi(y;\mu_i,\sigma^2+\sigma_E^2)  & \quad \text{else.}\\
+  \end{cases}
+\]
+Thus,
+\[
+f_Y(y)=w_1\delta_6+\sum_{i=2}^3w_i\phi(y;\mu_i,\sigma^2+\sigma_E^2).
+\]
+Note that we do not account for the fact that the observed data are rounded to integer values.
+\end{itemize}
+
+\subsection{Estimation of model
+parameters}\label{estimation-of-model-parameters}
+
+\begin{itemize}
+\itemsep1pt\parskip0pt\parsep0pt
+\item
+  We estimate \(w_1\) as the fraction of data points in the sample that
+  are equal to 6\hspace{3pt}mm.
+\item
+  The parameters of the second and third component of \(Y\),
+  i.e.~\(w_i\), \(\mu_i\), and \(\sigma^2+\sigma_E^2\), are estimated by
+  fitting a normal mixture model of two components to the data in the
+  sample with diameters greater than 6\hspace{3pt}mm. We use the R
+  package \texttt{mclust}.
+\item
+  Estimates for the variance of the error \(\sigma_E^2\) will be taken
+  from independent work in order to obtain \(\sigma^2\).
+\end{itemize}
+
+\subsection{Limitations of the model}\label{limitations-of-the-model}
+
+\begin{itemize}
+\itemsep1pt\parskip0pt\parsep0pt
+\item
+  The model does not account for the fact that \(X\geq6\)\hspace{3pt}mm.
+  As long as the means of the two components are sufficiently large (say
+  \(\mu_i-6\hspace{3pt}\text{mm}>2\sigma\)), this should not cause
+  problems.
+\item
+  The model does not account for the fact that
+  \(Y\leq40\)\hspace{3pt}mm. As long as the means of the two components
+  are sufficiently small (say
+  \(40\hspace{3pt}\text{mm}-\mu_i>2\sigma\)), this should not cause
+  problems.
+\item
+  The error is assumed to be normally distributed with constant
+  variance. This assumption is obviously violated if \(X\) is close to 6
+  or 40\hspace{3pt}mm. It is also violated for antibiotics like CPD, for
+  which diameters are distorted in order to avoid additional laborious
+  tests.
+\item
+  The distributions of the two components are assumed to be normal. This
+  seems fine for the component corresponding to wild-type strains.
+  However, the distribution of the component corresponding to the
+  resistant strains with \(X>6\)\hspace{3pt}mm might not be adequately
+  modelled.
+\item
+  The variances of the two components are assumed to be equal. This
+  assumption is problematic but has the advantage of guaranteeing that
+  there is only one decision boundary if strains are assigned to the
+  more likely component.
+\end{itemize}
+
+\section{Data}\label{data}
+
+\emph{E. coli}, \(\beta\)-lactams. \emph{To be completed.}
+
+\section{Results}\label{results}
+
+The figures in this document are organized as follows. Note that the the
+first and the second component are combined for visualisation.
+
+\begin{itemize}
+\itemsep1pt\parskip0pt\parsep0pt
+\item
+  Top-left: Histogram of sample and the estimated density of \(Y\)
+  (black) and its components (coloured). The contribution from the first
+  component (\(\delta_6\)) is visualised as a uniform distribution with
+  support {[}5.5\hspace{3pt}mm, 6.5\hspace{3pt}mm{]}.
+\item
+  Middle-left: Empirical cumulative distribution function (cdf) of \(Y\)
+  (grey), its estimate (black) and estimated cdfs for the components of
+  \(Y\) (coloured).
+\item
+  Bottom-left: \(p(C=i|Y=y)\), i.e.~the probability that a data point is
+  associated with component \(i\) given an observed diameter \(y\). For
+  this calculation, the first two components were grouped together.
+\item
+  Top-right: Q-Q plot. If the estimated density of \(Y\) explained the
+  data perfectly, all point would lie on the identity line (grey).
+\item
+  Middle-right: Histogram of sample and the estimated density of \(X\)
+  for various values of \(\sigma_E\).
+\item
+  Bottom-right: \(p(X\leq t|Y=y)\), i.e.~the probability that the true
+  diameter is below a breakpoint \(t\) given an observed diameter \(y\).
+  For the time being, \(t\) was set such that \(p(C=i|Y=t)\approx0.5\).
+\end{itemize}
+
+\pagebreak
+
+\subsection{AM10}\label{am10}
+
+\(\mu_{2,3}=\) 11.5 mm, 21.4 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 3 mm.
+\(w=\) 0.47, 0.09, 0.91.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-1.pdf}
+
+\pagebreak
+
+\subsection{KF}\label{kf}
+
+\(\mu_{2,3}=\) 13.2 mm, 19.6 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 2.7 mm.
+\(w=\) 0.12, 0.12, 0.88.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-2.pdf}
+
+\pagebreak
+
+\subsection{FOX}\label{fox}
+
+\(\mu_{2,3}=\) 14.1 mm, 25.5 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 3.1 mm.
+\(w=\) 0.01, 0.03, 0.97.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-3.pdf}
+
+\pagebreak
+
+\subsection{CPD}\label{cpd}
+
+\(\mu_{2,3}=\) 11.7 mm, 26.6 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 3.3 mm.
+\(w=\) 0.09, 0.03, 0.97.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-4.pdf}
+
+\pagebreak
+
+\subsection{AMC}\label{amc}
+
+\(\mu_{2,3}=\) 13.7 mm, 22.1 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 3 mm.
+\(w=\) 0.01, 0.16, 0.84.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-5.pdf}
+
+\pagebreak
+
+\subsection{TPZ}\label{tpz}
+
+\(\mu_{2,3}=\) 15 mm, 24.7 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 3.2 mm.
+\(w=\) 0, 0.03, 0.97.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-6.pdf}
+
+\pagebreak
+
+\subsection{CXM}\label{cxm}
+
+\(\mu_{2,3}=\) 14.1 mm, 24.6 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 2.8 mm.
+\(w=\) 0.09, 0.02, 0.98.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-7.pdf}
+
+\pagebreak
+
+\subsection{CTX}\label{ctx}
+
+\(\mu_{2,3}=\) 12.7 mm, 30 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 3.6 mm.
+\(w=\) 0.05, 0.05, 0.95.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-8.pdf}
+
+\pagebreak
+
+\subsection{CAZ}\label{caz}
+
+\(\mu_{2,3}=\) 13.8 mm, 27.2 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 3.1 mm.
+\(w=\) 0.02, 0.06, 0.94.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-9.pdf}
+
+\pagebreak
+
+\subsection{CRO}\label{cro}
+
+\(\mu_{2,3}=\) 12.1 mm, 30.8 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 2.9 mm.
+\(w=\) 0.04, 0.07, 0.93.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-10.pdf}
+
+\pagebreak
+
+\subsection{FEP}\label{fep}
+
+\(\mu_{2,3}=\) 16.7 mm, 31.6 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 3.4 mm.
+\(w=\) 0, 0.08, 0.92.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-11.pdf}
+
+\pagebreak
+
+\subsection{ETP}\label{etp}
+
+\(\mu_{2,3}=\) 30 mm, 35.3 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 3 mm.
+\(w=\) 0, 0.52, 0.48.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-12.pdf}
+
+\pagebreak
+
+\subsection{IPM}\label{ipm}
+
+\(\mu_{2,3}=\) 29.2 mm, 33.9 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 2.5 mm.
+\(w=\) 0.8, 0.2.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-13.pdf}
+
+\pagebreak
+
+\subsection{MEM}\label{mem}
+
+\(\mu_{2,3}=\) 30.8 mm, 35.1 mm. \(\sqrt{\sigma^2+\sigma_E^2}=\) 2.6 mm.
+\(w=\) 0.57, 0.43.
+
+\includegraphics{report_files/figure-latex/unnamed-chunk-4-14.pdf}
+
+\section{Conclusion}\label{conclusion}
+
+In discussions with Peter Keller and Michael Hombach on May, 11th and
+12th, 2016, we decided to split this project according to the goals
+stated in Sec.~\ref{sec:goals}. Roadmap:
+
+\begin{itemize}
+\itemsep1pt\parskip0pt\parsep0pt
+\item
+  Compare \(p\)(pseudo-WT\textbar{}observed diameter) with ground truth.
+\item
+  Compute the probability of very major errors for CBP and CBP + 2 mm.
+\item
+  Investigate robustness of model \(p\)(S\textbar{}observed diameter).
+\item
+  Extend analysis to quinolones, tetracyclines, aminoglycosides,
+  cholistin, etc.~using data cleaned by Giorgia Valsesia.
+\item
+  Plan manuscript.
+\item
+  Meet with Marc Schmid regarding implementation.
+\end{itemize}
+
+\section{Appendix}\label{appendix}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics{report_files/figure-latex/unnamed-chunk-5-1.pdf}
+\caption{\label{fig:allDistr}Distributions of diameters.}
+\end{figure}
+
+\end{document}

@@ -1,0 +1,356 @@
+---
+title: "Forecast probabilities - work in progress"
+author: "Nicolas Blöchliger, Institute of Medical Microbiology, University of Zurich"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  pdf_document:
+    fig_caption: yes
+    number_sections: true
+    toc: true
+    keep_tex: true
+
+linkcolor: black
+bibliography: ../../../../Bibliography/literature.bib
+csl: ../../../../Bibliography/computer-physics-communications.csl
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+source('../../Scripts/loadLibs.R')
+source('../../Scripts/master.R')
+source('../../Scripts/helper.R')
+
+options(digits=3)
+theme_set(theme_bw(base_size=8) + theme(panel.grid.major=element_line(size=0.25)))
+```
+
+```{r, echo=FALSE, results='asis'}
+master <- function(x, class, cbp, sigma=1, delta6=TRUE, modelName='V', nComp=1:7, ...) {
+  stopifnot(nrow(x) == length(class))
+  stopifnot(is.logical(delta6))
+  stopifnot(modelName %in% c('E', 'V'))
+  stopifnot(nComp > 0)
+  
+  if (delta6 & all(x > 6)) {
+    delta6 <- FALSE
+  }
+  
+  antibiotic <- colnames(x)
+  x <- as.double(as.matrix(x))
+  
+  # Fit model:
+  mdl <- getEligibleMdl(x, delta6, modelName, nComp, sigma=sigma)
+  
+  # Print summary of model:
+  pandoc.header(antibiotic, 3)
+  printSummary(mdl)
+  
+  # Generate panels of figure:
+  output <- masterPlot(x, mdl, cbp, sigma)
+  
+  plt <- arrangeGrob(output$plot)
+  ggsave(paste0("Figs/", antibiotic, ".png"), plot=plt, width=13, height=13, units="cm", dpi=600, limitsize=TRUE)
+  grid.arrange(plt)
+  
+  return(output)
+}
+```
+
+```{r, echo=FALSE, results='asis', cache=TRUE}
+d <- list()
+
+# Beta-lactams:
+dRaw <- read.xls("../../../20160314_MvaBetaLactams/Data/data.xlsx", sheet=1)
+x <- dRaw[, 9:22]
+y <- dRaw$TYPE..according.to.algorithm.
+y <- revalue(y, c('ESBL and  carbapenemase'='ESBL and carba', 'ESBL and AmpC and carbapenemase'='ESBL, AmpC, and carba'))
+d$BetaLactams <- data.frame(x, class=y)
+
+# Aminoglycosides:
+dRaw <- read.xls("../../../20160322_MvaEColiAminoglycosides/Data/E.coli_Aminoglycosides_Data_20160311.xlsx", sheet=1)
+x <- dRaw[, c('K', 'CN', 'TOB')]
+names(x) <- c('KAN', 'GEN', 'TOB')
+# y <- dRaw$TYPE..according.to.ECOFF.based.algorithm.
+# y <- revalue(y, c('Impossible phenotype / AAC(3)-I or AAC(3)-VI '='Impossible phenotype / AAC(3)-I or AAC(3)-VI'))
+d$Aminoglycosides <- data.frame(x, class=NA)
+
+# Quinolones:
+dRaw <- read.xls("../../Data/quinolones.xlsx", sheet=1)
+x <- dRaw[, c('NA.', 'NOR', 'CIP', 'LEV')]
+names(x)[1] <- 'NAL'
+d$Quinolones <- data.frame(x, class=NA)
+
+# Tetracyclines:
+dRaw <- read.xls("../../Data/tetracyclines.xlsx", sheet=1)
+x <- dRaw[, c('TE', 'MI', 'TGC')]
+d$Tetracyclines <- data.frame(x, class=NA)
+
+nAntibiotics <- sum(sapply(d, ncol) - 1)
+```
+
+```{r, echo=FALSE, results='asis'}
+cbp <- readCBPs()
+sigmaE <- readSigmaE()
+abbr <- read.table("../../Data/antibioticsAbbreviations.txt", sep=',', header=TRUE, strip.white=TRUE)
+```
+
+# Goal
+\label{sec:goals}
+
+Compute the probability that a strain is susceptible according to official breakpoints given an observed diameter $y$.
+
+# Materials and methods
+
+## Model
+
+We assume:
+
+\begin{itemize}
+\item The distribution of the true diameter $X$ is a mixture of $n\geq2$ components with weights $w_i=p(C=i)$, where $C$ encodes the component. The true diameter is 6\hspace{3pt}mm for the first component and normally distributed for the other components:
+\[
+p_i(x)=f_X(x|C=i)=
+  \begin{cases}
+    \delta_6(x)       & \quad \text{if } i=1,\\
+    \phi(x;\mu_i,\sigma_i^2)  & \quad \text{else,}\\
+  \end{cases}
+\]
+where
+\[ \delta_6(x) =
+  \begin{cases}
+    \infty       & \quad \text{if } x=6\hspace{3pt}\text{mm},\\
+    0  & \quad \text{else.}\\
+  \end{cases}
+\]
+Thus,
+\[
+f_X(x)=w_1\delta_6+\sum_{i=2}^nw_i\phi(x;\mu_i,\sigma_i^2).
+\]
+
+\item We observe $Y=X+E$, where $E$ models technical error. $E$ is zero for the first component and normally distributed and independent of $X$ with mean $\mu_E=0$ and constant variance $\sigma_E^2$ for the other components. The conditional density of $Y$ given the component $C$ is therefore
+\[ f_Y(y|C=i) =
+  \begin{cases}
+    \delta_6(y)       & \quad \text{if } i=1,\\
+    p_i\ast\phi(\hspace{1pt}\cdot\hspace{1pt};0,\sigma_E^2)=\phi(y;\mu_i,\sigma_i^2+\sigma_E^2)  & \quad \text{else.}\\
+  \end{cases}
+\]
+Thus,
+\[
+f_Y(y)=w_1\delta_6+\sum_{i=2}^nw_i\phi(y;\mu_i,\sigma_i^2+\sigma_E^2).
+\]
+Note that we do not account for the fact that the observed data are rounded to integer values.
+\end{itemize}
+
+### Estimation of model parameters
+* We estimate $w_1$ as the fraction of data points in the sample that are equal to 6\hspace{3pt}mm.
+* For $n=2,\dots,10$, the parameters of the normally distributed components of $Y$, i.e.\ $w_i$, $\mu_i$, and $\sigma_i^2+\sigma_E^2$, are estimated by fitting a normal mixture model of $n-1$ components to the data in the sample with diameters greater than 6\hspace{3pt}mm. Based on the Bayesian information criterion, the best best value of $n$ is selected. Values of $n$ that resulted in models that did not satisfy $\sigma_i>0$ were excluded. We use the R package `mclust`.
+* Estimates for the variance of the error $\sigma_E^2$ will be taken from independent work in order to obtain $\sigma_i^2$. For the time being we use $\sigma_E^2=1$\hspace{3pt}mm.
+
+### Limitations of the model
+* The model does not account for the fact that $X\geq6$\hspace{3pt}mm. As long as the means of the the normally distributed components are sufficiently large (say $\mu_i-6\hspace{3pt}\text{mm}>2\sigma$), this should not cause problems.
+* The model does not account for the fact that $Y\leq40$\hspace{3pt}mm. As long as the means of the normally distributed components are sufficiently small (say $40\hspace{3pt}\text{mm}-\mu_i>2\sigma$), this should not cause problems.
+* The error is assumed to be normally distributed with constant variance. This assumption is obviously violated if $X$ is close to 6 or 40\hspace{3pt}mm. It is also violated for antibiotics like CPD, for which diameters are distorted in order to avoid additional laborious tests.
+* The distributions of all but the first component are assumed to be normal.
+
+## Data
+
+Raw data for the beta-lactams was obtained from Giorgia Valsesia on 11.03.2016. It contains measurements for `r nrow(d$BetaLactams)` *E. coli* strains collected from January 2010 until March 2014.
+
+Raw data for the aminoglycosides was obtained from Giorgia Valsesia on 15.03.2016. It contains measurements for `r nrow(d$Aminoglycosides)` *E. coli* strains.
+
+Raw data for the quinolones was obtained from Giorgia Valsesia on 18.05.2015. It contains measurements for `r nrow(d$Quinolones)` *E. coli* strains collected from February 2011 until May 2014.
+
+Raw data for the tetracyclines was obtained from Giorgia Valsesia on 18.05.2015. It contains measurements for `r nrow(d$Tetracyclines)` *E. coli* strains collected from January 2010 until May 2014.
+
+The following `r nAntibiotics` antibiotics were used:
+
+```{r, echo=FALSE, results='asis'}
+cat('\n\n')
+kable(abbr, row.names=FALSE, caption="\\label{tab:abbr}Antibiotics used in this study.")
+```
+
+All analysis is restricted to the antibiotics for which CBPs are available.
+
+## Probabilities of misclassification errors
+
+The probabilities of very major and major technical misclassification errors based on offical CBPs are given by
+$$p(\text{very major error})=p(X<\text{CBP}_\text{R}\enspace\text{and}\enspace Y\geq\text{CBP}_\text{S}) \text{ and}$$
+$$p(\text{major error})=p(X\geq\text{CBP}_\text{S}\enspace\text{and}\enspace Y<\text{CBP}_\text{R}).$$
+
+Additionally, we compute probabilities of technical misclassification errors if strains with observed diameters in the ZMU are classified as I:
+$$p(\text{very major error})=p(X<Z_R\enspace\text{and}\enspace Y\geq Z_S) \text{ and}$$
+$$p(\text{major error})=p(X\geq Z_S\enspace\text{and}\enspace Y<Z_R),$$
+where $Z_R$ is the minimum of $\text{CBP}_\text{R}$ and the left boundary of the ZMU and $Z_S$ is the maximum of $\text{CBP}_\text{S}$ and the right boundary of the ZMU.
+
+Finally, if CBP_S is increased by 2 mm, the probabilities of technical misclassification errors are given by
+$$p(\text{very major error})=p(X<\text{CBP}_\text{R}\enspace\text{and}\enspace Y\geq\text{CBP}_\text{S}+2\text{ mm}) \text{ and}$$
+$$p(\text{major error})=p(X\geq\text{CBP}_\text{S}+2\text{ mm}\enspace\text{and}\enspace Y<\text{CBP}_\text{R}).$$
+
+
+
+
+# Results
+
+In the figures on the next pages, dashed vertical lines indicate CBPs according to http://www.eucast.org/fileadmin/src/media/PDFs/EUCAST_files/Breakpoint_tables/v_6.0_Breakpoint_table.xls (13.05.2016, see Appendix). The figures are organized as follows.
+
+* Top-left: Histogram of sample and the estimated density of $Y$ (black) and its components (coloured). The contribution from the first component ($\delta_6$) is visualised as a uniform distribution with support [5.5\hspace{3pt}mm, 6.5\hspace{3pt}mm].
+* Middle-left: Empirical cumulative distribution function (cdf) of $Y$ (grey), its estimate (black) and estimated cdfs for the components of $Y$ (coloured).
+* Bottom-left: Q-Q plot. If the estimated density of $Y$ explained the data perfectly, all point would lie on the identity line (grey).
+* Top-right: Histogram of sample and the estimated density of $X$ for various values of $\sigma_E$.
+* Bottom-right: $p(X\geq\text{CBP}_\text{S}|Y=y)$, i.e.\ the probability that the true diameter is above the CBP defining susceptibility given an observed diameter $y$. Observed diameters for which this probability is in [0.01,0.99] are defined to be in a zone of methodological uncertainty (ZMU). The ZMU is highlighted in red, and its properties are summarised in Tab.\ \ref{tab:ZMU}.
+
+```{r, echo=FALSE, fig.height=5.0, results='asis'}
+antibioticsLst <- unlist(lapply(d, colnames), use.names=FALSE)
+antibioticsLst <- antibioticsLst[antibioticsLst != 'class']
+stopifnot(nAntibiotics == length(antibioticsLst))
+widthUncertain <- data.frame(cbp[!is.na(cbp$S), ], zmuMin=NA, zmuMax=NA, weight=NA)
+errorProbs <- data.frame()
+pltMS1 <- list()
+pltMS2 <- list()
+
+cat('\n\n\\pagebreak\n')
+# for (i in 1:length(d)) {
+for (i in c(1:4)) {
+  abClass <- names(d)[i]
+  if (abClass == 'BetaLactams') {
+    abClass <- 'Beta-lactams'
+  }
+  pandoc.header(abClass, 2)
+  for (j in 1:(ncol(d[[i]]) - 1)) {
+  # for (j in 1) {
+    x <- d[[i]][, j, drop=FALSE]
+    idx <- !is.na(x)
+    x <- x[idx, 1, drop=FALSE]
+    ab <- colnames(x)
+    if (!is.na(cbp$S[cbp$antibiotic == ab]) & any(x < cbp[cbp$antibiotic == ab, "R"])) {
+      tmp <- master(x=x, class=d[[i]]$class[idx], cbp=cbp[cbp$antibiotic == ab, 2:3], sigma=sigmaE$sd[sigmaE$antibiotic == ab], modelName='V')
+      widthUncertain[widthUncertain$antibiotic == ab, 4:6] = tmp$uncertain[c(3, 4, 2)]
+      errorProbs <- rbind(errorProbs, data.frame(antibiotic=ab, tmp$errorProbs))
+      cat('\n\n\\pagebreak\n')
+      pltMS1[[ab]] = tmp$plotMS1
+      pltMS2[[ab]] = tmp$plotMS2
+    }
+  }
+}
+```
+
+```{r, echo=FALSE, fig.height=7.5, results='asis'}
+widthUncertain$width <- widthUncertain$zmuMax - widthUncertain$zmuMin
+widthUncertain$weight <- widthUncertain$weight * 100
+colnames(widthUncertain) <- c(paste0(c('', rep('CBP_', 2)), colnames(cbp), c('', rep('/mm', 2))), 'ZMU: a/mm', 'ZMU: b/mm', 'weight/%', 'width/mm')
+widthUncertain <- widthUncertain[, c(1, 3, 2, 4:5, 7:6)]
+ttt <- left_join(widthUncertain, sigmaE, by='antibiotic')
+names(ttt)[1] <- 'abbreviation'
+ttt <- left_join(ttt, abbr, by='abbreviation')
+ttt <- ttt[, c(9, 8, 2:7)]
+colnames(ttt)[2] <- 'sd_E/mm'
+write.table(ttt, file='ms1Tab1_raw.csv', sep=';', row.names=FALSE)
+cat('\n\n\\pagebreak\n')
+kable(ttt, row.names=FALSE, digits=c(0, 1, rep(0, 6)), caption="\\label{tab:ZMU}Official CBPs (EUCAST) and zones of methodological uncertainty (ZMUs) derived from our model. The weight of the ZMU is defined as the fraction of data points that lie in the ZMU.")
+```
+
+AMC and TPZ have ZMUs with exceptionally high weights.
+
+```{r, echo=FALSE, fig.height=7.5, results='asis'}
+cat('\n\n\\pagebreak\n')
+tmp <- errorProbs
+tmp$errorType <- revalue(tmp$errorType, c('major'='m', 'very major'='vm'))
+tmp <- tmp[, 1:4] %>% unite(myColNames, errorType, case, sep=' / ') %>% spread(myColNames, errorProbability)
+
+tmp$`m / I for ZMU logRatio` <- log10(tmp$`m / I for ZMU` / tmp$`m / official CBPs`)
+tmp$`vm / I for ZMU logRatio` <- log10(tmp$`vm / I for ZMU` / tmp$`vm / official CBPs`)
+
+tmp$`m / CBP_S increased by 2mm logRatio` <- log10(tmp$`m / CBP_S increased by 2mm` / tmp$`m / official CBPs`)
+tmp$`vm / CBP_S increased by 2mm logRatio` <- log10(tmp$`vm / CBP_S increased by 2mm` / tmp$`vm / official CBPs`)
+
+tmp <- tmp[, c(1, 7, 6, 9, 5, 11, 4, 3, 8, 2, 10)]
+
+
+widthUncertain$antibiotic <- factor(widthUncertain$antibiotic, levels=levels(tmp$antibiotic))
+
+ms2tab1 <- left_join(widthUncertain, tmp, by='antibiotic')
+names(ms2tab1)[1] <- 'abbreviation'
+ms2tab1 <- left_join(ms2tab1, abbr, by='abbreviation')
+ms2tab1 <- ms2tab1[, c(18, 2:17)]
+write.table(ms2tab1, file='ms2Tab1_raw.csv', sep=';', row.names=FALSE)
+
+# tmp[, c(2:3, 5:6)] <- format(tmp[, c(2:3, 5:6)], scientific=TRUE, digits=1)
+# tmp[, c(4, 7)] <- round(tmp[, c(4, 7)])
+# 
+# kable(tmp, row.names=FALSE, caption="\\label{tab:errorProbs}To be written.")
+```
+
+```{r, echo=FALSE, fig.height=7.5, results='asis'}
+cat('\n\n\\pagebreak\n')
+# kable(format(errorProbs, scientific=TRUE, digits=2), row.names=FALSE)
+for (eT in rev(levels(errorProbs$errorType))) {
+  # print(ggplot(filter(errorProbs, errorType == eT, !(antibiotic %in% c('ETP', 'IPM', 'MEM', 'TGC'))), aes(x=case, y=errorProbability, fill=case, ymin=lower, ymax=upper)) + geom_errorbar(position=position_dodge(width=0.9), width=0.25) + geom_bar(stat='identity', position='dodge', colour=1) + facet_wrap(~ antibiotic, scales='free') + scale_fill_discrete(name='basis for prediction') + xlab('') + theme(axis.text.x=element_blank(), axis.ticks=element_blank(), legend.position="top") + ggtitle(paste(eT, 'error')))
+  print(ggplot(filter(errorProbs, errorType == eT), aes(x=case, y=errorProbability, fill=case, ymin=lower, ymax=upper)) + geom_errorbar(position=position_dodge(width=0.9), width=0.25) + geom_bar(stat='identity', position='dodge', colour=1) + facet_wrap(~ antibiotic, scales='free') + scale_fill_discrete(name='basis for prediction') + xlab('') + theme(axis.text.x=element_blank(), axis.ticks=element_blank(), legend.position="top") + ggtitle(paste(eT, 'error')))
+  cat('\n\n\\pagebreak\n')
+}
+```
+
+
+
+# Appendix
+
+## Clinical breakpoints
+
+```{r, echo=FALSE}
+kable(cbp, col.names=paste0(c('', rep('CBP_', 2)), colnames(cbp), c('', rep('/mm', 2))), caption='Clinical breakpoints (CBPs).')
+```
+
+## Distributions for beta-lactams
+
+```{r, echo=FALSE, fig.height=8, fig.cap="\\label{fig:allDistr}Distributions of diameters for beta-lactams."}
+cols <- brewer.pal(8, 'Set2')[c(6, 3, 4, 2, 7:8, 1, 5)]
+
+tmp <- melt(d$BetaLactams, id.vars='class', variable.name='antibiotic', value.name='diameter')
+
+ggplot(tmp, aes(x=diameter, color=class)) + geom_freqpoly(boundary=(min(tmp$diameter) - 0.5), binwidth=1, size=1) + facet_wrap(~ antibiotic) + xlab('diameter / mm') + ylab('count of strains (linear scale)') + theme(legend.position="top") + scale_colour_manual(values=cols) + ylab('count of strains (logarithmic scale)') + scale_y_log10()
+```
+
+## Figure for manuscript 1
+
+```{r, echo=FALSE, fig.height=6, results='asis'}
+abbr2 <- abbr$antibiotic
+names(abbr2) <- abbr$abbreviation
+
+abAll <- c('AM10', 'FEP', 'CTX', 'FOX', 'CAZ', 'CRO', 'CXM', 'CIP', 'AMC', 'ETP', 'GEN', 'LEV', 'MEM', 'NOR', 'TPZ', 'TOB')
+abFig1 <- list()
+abFig1[[1]] <- abAll[1:8]
+abFig1[[2]] <- abAll[9:16]
+
+for (j in 1:2) {
+  plt <- list()
+  for (i in 1:length(abFig1[[j]])) {
+    antibiotic <- abFig1[[j]][i]
+    if (j == 1) {
+      let <- letters[i]
+    } else {
+      let <- letters[length(abFig1[[1]]) + i]
+    }
+    title <- paste0('(', let, ') ', abbr$antibiotic[abbr$abbreviation == antibiotic])
+    plt[[i]] <- arrangeGrob(pltMS1[[antibiotic]], top=textGrob(title, x=0, y=0, hjust=0, vjust=0, gp=gpar(fontsize=8, fontface="bold")))
+  }
+  
+  plt <- do.call("plot_grid", c(plt, ncol=4))
+  ggsave(paste0("FigsMS1/fig", j, ".png"), plot=plt, width=18, height=18, units="cm", dpi=600, limitsize=TRUE)
+  grid.arrange(plt)
+}
+```
+
+## Figure for manuscript 2
+
+```{r, echo=FALSE, fig.height=3, results='asis'}
+abFig1 <- c('AM10', 'FOX', 'CXM', 'AMC')
+
+plt <- list()
+for (i in 1:length(abFig1)) {
+  antibiotic <- abFig1[i]
+  title <- paste0('(', letters[i], ') ', abbr$antibiotic[abbr$abbreviation == antibiotic])
+  plt[[i]] <- arrangeGrob(pltMS2[[antibiotic]], top=textGrob(title, x=0, y=0, hjust=0, vjust=0, gp=gpar(fontsize=8, fontface="bold")))
+}
+
+plt <- do.call("plot_grid", c(plt, ncol=2))
+ggsave(paste0("FigsMS2/fig1.png"), plot=plt, width=8.8, height=8, units="cm", dpi=600, limitsize=TRUE)
+grid.arrange(plt)
+```

@@ -1,0 +1,25 @@
+antibiotic, abbreviation
+ampicillin, AM10
+cephalothin, KF
+cefoxitin, FOX
+cefpodoxime, CPD
+co-amoxiclav, AMC
+piperacillin-tazobactam, TPZ
+cefuroxime, CXM
+cefotaxime, CTX
+ceftazidime, CAZ
+ceftriaxone, CRO
+cefepime, FEP
+ertapenem, ETP
+imipenem, IPM
+meropenem, MEM
+kanamycin, KAN
+gentamicin, GEN
+tobramycin, TOB
+nalidixic acid, NAL
+norfloxacin, NOR
+ciprofloxacin, CIP
+levofloxacin, LEV
+minocycline, MI
+tetracycline, TE
+tigecycline, TGC

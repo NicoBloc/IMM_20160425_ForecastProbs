@@ -1,0 +1,127 @@
+\documentclass[a4paper]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+    \usepackage{xltxtra,xunicode}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Mapping=tex-text,Scale=MatchLowercase}
+  \newcommand{\euro}{€}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\ifxetex
+  \usepackage[setpagesize=false, % page size defined by xetex
+              unicode=false, % unicode breaks when used with xetex
+              xetex]{hyperref}
+\else
+  \usepackage[unicode=true]{hyperref}
+\fi
+\hypersetup{breaklinks=true,
+            bookmarks=true,
+            pdfauthor={Nicolas Blöchliger, Institute of Medical Microbiology, University of Zurich},
+            pdftitle={Forecast probabilities - modelling literature review},
+            colorlinks=true,
+            citecolor=blue,
+            urlcolor=blue,
+            linkcolor=black,
+            pdfborder={0 0 0}}
+\urlstyle{same}  % don't use monospace font for urls
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\setcounter{secnumdepth}{5}
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\newcommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+  \title{Forecast probabilities - modelling literature review}
+  \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+  \author{Nicolas Blöchliger, Institute of Medical Microbiology, University of
+Zurich}
+  \preauthor{\centering\large\emph}
+  \postauthor{\par}
+  \predate{\centering\large\emph}
+  \postdate{\par}
+  \date{01/06/2016}
+
+
+
+\begin{document}
+
+\maketitle
+
+
+{
+\hypersetup{linkcolor=black}
+\setcounter{tocdepth}{2}
+\tableofcontents
+}
+\section{Error rate-bound method
+{[}1{]}}\label{error-rate-bound-method-metzler1974}
+
+Aim: Determine CBPs for inhibition zone diameters. Required: MIC
+cut-off, desired sensitivity and specificity. Model: Classification
+according to this cut-off is treated as the ground truth. CBPs for
+inhibition zone diameters are set such that desired sensitivity and
+specificity are achieved for a minimal intermediate zone.
+
+Ref.~{[}2{]} presents a cost function and an algorithm for its
+optimisation to apply the error rate-bound method in cases with two
+different MIC cut-offs.
+
+\section{{[}3{]}}\label{craig2000}
+
+Motivation: the error-rate bound method
+
+\section*{Reference}\label{reference}
+\addcontentsline{toc}{section}{Reference}
+
+{[}1{]}C.M. Metzler, R.M. DeHaan, Susceptibility tests of anaerobic
+bacteria: Statistical and clinical considerations, J.~Infect.~Dis. 130
+(1974) 588--594.
+
+{[}2{]}M.N. Brunden, G.E. Zurenko, B. Kapik, Modification of the
+error-rate bounded classification scheme for use with two MIC break
+points, Diagn.~Microbiol.~Infect.~Dis. 15 (1992) 135--140.
+
+{[}3{]}B.A. Craig, Modeling approach to diameter breakpoint
+determination, Diagn.~Microbiol.~Infect.~Dis. 36 (2000) 193--202.
+
+\end{document}

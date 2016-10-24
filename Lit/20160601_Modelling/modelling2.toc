@@ -1,0 +1,51 @@
+\contentsline {section}{\numberline {1}Error rate-bound method \cite {Metzler1974}}{1}
+\contentsline {paragraph}{Aim}{1}
+\contentsline {paragraph}{Required}{1}
+\contentsline {paragraph}{Model}{1}
+\contentsline {paragraph}{Abstract Ref.\nobreakspace {}\cite {Metzler1974}}{1}
+\contentsline {paragraph}{Abstract Ref.\nobreakspace {}\cite {Brunden1992}}{2}
+\contentsline {section}{\numberline {2}Craig \cite {Craig2000}}{2}
+\contentsline {paragraph}{Motivation}{2}
+\contentsline {paragraph}{Model}{2}
+\contentsline {paragraph}{Probability of correct classification}{3}
+\contentsline {paragraph}{Abstract}{3}
+\contentsline {paragraph}{Follow-up study \cite {Annis2005}}{3}
+\contentsline {paragraph}{Lamy \cite {Lamy2004}}{3}
+\contentsline {paragraph}{DePalma \cite {Depalma2016,Depalma2016b}}{3}
+\contentsline {section}{\numberline {3}Normalized resistance interpretation \cite {Kronvall2003}}{3}
+\contentsline {paragraph}{Aim}{3}
+\contentsline {paragraph}{Model}{3}
+\contentsline {paragraph}{Fitting}{3}
+\contentsline {paragraph}{Abstract}{3}
+\contentsline {section}{\numberline {4}Craig on interlaboratory variability \cite {Annis2005b}}{4}
+\contentsline {paragraph}{Aim}{4}
+\contentsline {paragraph}{Model}{4}
+\contentsline {paragraph}{Fitting}{4}
+\contentsline {paragraph}{Abstract}{4}
+\contentsline {section}{\numberline {5}Turnidge \cite {Turnidge2006}}{5}
+\contentsline {paragraph}{Aim}{5}
+\contentsline {paragraph}{Model}{5}
+\contentsline {paragraph}{Fitting}{5}
+\contentsline {paragraph}{Abstract}{5}
+\contentsline {section}{\numberline {6}Kassteele \cite {Kassteele2012}}{5}
+\contentsline {paragraph}{Aim}{5}
+\contentsline {paragraph}{Model}{6}
+\contentsline {paragraph}{Fitting}{6}
+\contentsline {paragraph}{Abstract}{6}
+\contentsline {section}{\numberline {7}Meletiadis \cite {Meletiadis2012}}{6}
+\contentsline {paragraph}{Aim}{6}
+\contentsline {paragraph}{Model}{6}
+\contentsline {paragraph}{Fitting}{6}
+\contentsline {paragraph}{Abstract}{6}
+\contentsline {section}{\numberline {8}Cant{\'o}n \cite {Canton2012}}{7}
+\contentsline {paragraph}{Aim}{7}
+\contentsline {paragraph}{Model}{7}
+\contentsline {paragraph}{Fitting}{7}
+\contentsline {paragraph}{Abstract}{7}
+\contentsline {section}{\numberline {9}Jaspers \cite {Jaspers2014a}}{7}
+\contentsline {paragraph}{Aim}{7}
+\contentsline {paragraph}{Model}{8}
+\contentsline {paragraph}{Fitting}{8}
+\contentsline {paragraph}{Abstract}{8}
+\contentsline {paragraph}{First follow-up study \cite {Jaspers2014b}}{8}
+\contentsline {paragraph}{Second follow-up study \cite {Jaspers2016}}{8}
